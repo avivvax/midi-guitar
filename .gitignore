@@ -1,0 +1,6 @@
+node_modules
+dist
+dev-dist
+.firebase
+*.log
+*.tsbuildinfo
