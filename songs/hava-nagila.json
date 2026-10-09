@@ -1,0 +1,119 @@
+{
+  "title": "הבה נגילה",
+  "artist": "עממי",
+  "key": "Am",
+  "tempo": 120,
+  "sections": [
+    {
+      "name": "בית א",
+      "chords": [
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "בית ב",
+      "chords": [
+        {
+          "chord": "Dm",
+          "beats": 4
+        },
+        {
+          "chord": "Dm",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "Dm",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "בית ג",
+      "chords": [
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "Dm",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "title": "Free Fallin'",
+  "artist": "Tom Petty",
+  "key": "F",
+  "tempo": 84,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "Bb",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

@@ -310,6 +310,21 @@ export class AudioEngine {
     };
   }
 
+  /** Metronome tick at AudioContext time `when`; accented on the bar's first beat. Dry, straight to master. */
+  metronomeClick(when: number, accent: boolean): void {
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    osc.frequency.value = accent ? 1600 : 1000;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, when);
+    g.gain.linearRampToValueAtTime(accent ? 0.5 : 0.3, when + 0.001);
+    g.gain.exponentialRampToValueAtTime(0.001, when + 0.04);
+    osc.connect(g).connect(this.master);
+    osc.start(when);
+    osc.stop(when + 0.05);
+    osc.onended = () => g.disconnect();
+  }
+
   /** Percussive muted-string click. */
   click(string: number, velocity: number): number {
     const ctx = this.ctx;

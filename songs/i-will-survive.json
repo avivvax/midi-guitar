@@ -1,0 +1,45 @@
+{
+  "title": "I Will Survive",
+  "artist": "Gloria Gaynor",
+  "key": "Am",
+  "tempo": 117,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "Dm",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "Bm7b5",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "title": "Despacito",
+  "artist": "Luis Fonsi",
+  "key": "Bm",
+  "tempo": 89,
+  "sections": [
+    {
+      "name": "Loop",
+      "chords": [
+        {
+          "chord": "Bm",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

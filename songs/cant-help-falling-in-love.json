@@ -1,0 +1,110 @@
+{
+  "title": "Can't Help Falling in Love",
+  "artist": "Elvis Presley",
+  "key": "C",
+  "tempo": 100,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "C",
+          "beats": 3
+        },
+        {
+          "chord": "Em",
+          "beats": 3
+        },
+        {
+          "chord": "Am",
+          "beats": 3
+        },
+        {
+          "chord": "F",
+          "beats": 3
+        },
+        {
+          "chord": "C",
+          "beats": 3
+        },
+        {
+          "chord": "G",
+          "beats": 3
+        },
+        {
+          "chord": "F",
+          "beats": 3
+        },
+        {
+          "chord": "G",
+          "beats": 3
+        },
+        {
+          "chord": "Am",
+          "beats": 3
+        },
+        {
+          "chord": "F",
+          "beats": 3
+        },
+        {
+          "chord": "C",
+          "beats": 3
+        },
+        {
+          "chord": "G",
+          "beats": 3
+        },
+        {
+          "chord": "C",
+          "beats": 3
+        }
+      ]
+    },
+    {
+      "name": "Bridge",
+      "chords": [
+        {
+          "chord": "Em",
+          "beats": 3
+        },
+        {
+          "chord": "B7",
+          "beats": 3
+        },
+        {
+          "chord": "Em",
+          "beats": 3
+        },
+        {
+          "chord": "B7",
+          "beats": 3
+        },
+        {
+          "chord": "Em",
+          "beats": 3
+        },
+        {
+          "chord": "B7",
+          "beats": 3
+        },
+        {
+          "chord": "Em",
+          "beats": 3
+        },
+        {
+          "chord": "A7",
+          "beats": 3
+        },
+        {
+          "chord": "Dm",
+          "beats": 3
+        },
+        {
+          "chord": "G",
+          "beats": 3
+        }
+      ]
+    }
+  ]
+}

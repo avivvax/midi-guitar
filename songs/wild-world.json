@@ -1,0 +1,82 @@
+{
+  "title": "Wild World",
+  "artist": "Cat Stevens",
+  "key": "Am",
+  "tempo": 96,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "D7",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "Cmaj7",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "Dm",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Chorus",
+      "chords": [
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

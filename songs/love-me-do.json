@@ -1,0 +1,82 @@
+{
+  "title": "Love Me Do",
+  "artist": "The Beatles",
+  "key": "G",
+  "tempo": 148,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Bridge",
+      "chords": [
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

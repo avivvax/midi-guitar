@@ -1,0 +1,50 @@
+{
+  "title": "Wake Me Up",
+  "artist": "Avicii",
+  "key": "Bm",
+  "tempo": 124,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "Bm",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Chorus",
+      "chords": [
+        {
+          "chord": "Bm",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

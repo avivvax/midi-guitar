@@ -1,0 +1,82 @@
+{
+  "title": "התקווה",
+  "artist": "נפתלי הרץ אימבר / עממי",
+  "key": "Am",
+  "tempo": 76,
+  "sections": [
+    {
+      "name": "בית",
+      "chords": [
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "Dm",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "Dm",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "פזמון",
+      "chords": [
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "Dm",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

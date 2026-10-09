@@ -1,0 +1,50 @@
+{
+  "title": "A Horse with No Name",
+  "artist": "America",
+  "key": "Em",
+  "tempo": 123,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "Em",
+          "beats": 4
+        },
+        {
+          "chord": "D6/9",
+          "beats": 4
+        },
+        {
+          "chord": "Em",
+          "beats": 4
+        },
+        {
+          "chord": "D6/9",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Chorus",
+      "chords": [
+        {
+          "chord": "Em",
+          "beats": 4
+        },
+        {
+          "chord": "D6/9",
+          "beats": 4
+        },
+        {
+          "chord": "Em",
+          "beats": 4
+        },
+        {
+          "chord": "D6/9",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

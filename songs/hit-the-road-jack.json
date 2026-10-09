@@ -1,0 +1,29 @@
+{
+  "title": "Hit the Road Jack",
+  "artist": "Ray Charles",
+  "key": "Am",
+  "tempo": 172,
+  "sections": [
+    {
+      "name": "Loop",
+      "chords": [
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

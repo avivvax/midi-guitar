@@ -1,0 +1,156 @@
+{
+  "title": "Let It Be",
+  "artist": "The Beatles",
+  "key": "C",
+  "tempo": 72,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Chorus",
+      "chords": [
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Verse 2",
+      "chords": [
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Chorus 2",
+      "chords": [
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

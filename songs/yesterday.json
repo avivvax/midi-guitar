@@ -1,0 +1,86 @@
+{
+  "title": "Yesterday",
+  "artist": "The Beatles",
+  "key": "F",
+  "tempo": 97,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "Em7",
+          "beats": 2
+        },
+        {
+          "chord": "A7",
+          "beats": 2
+        },
+        {
+          "chord": "Dm",
+          "beats": 4
+        },
+        {
+          "chord": "Dm/C",
+          "beats": 4
+        },
+        {
+          "chord": "Bb",
+          "beats": 2
+        },
+        {
+          "chord": "C7",
+          "beats": 2
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Bridge",
+      "chords": [
+        {
+          "chord": "Em7",
+          "beats": 2
+        },
+        {
+          "chord": "A7",
+          "beats": 2
+        },
+        {
+          "chord": "Dm",
+          "beats": 2
+        },
+        {
+          "chord": "C",
+          "beats": 2
+        },
+        {
+          "chord": "Bb",
+          "beats": 2
+        },
+        {
+          "chord": "Dm",
+          "beats": 2
+        },
+        {
+          "chord": "Gm7",
+          "beats": 2
+        },
+        {
+          "chord": "C7",
+          "beats": 2
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

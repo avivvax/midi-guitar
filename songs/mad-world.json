@@ -1,0 +1,66 @@
+{
+  "title": "Mad World",
+  "artist": "Gary Jules",
+  "key": "Em",
+  "tempo": 88,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "Em",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        },
+        {
+          "chord": "Em",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Chorus",
+      "chords": [
+        {
+          "chord": "Em",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        },
+        {
+          "chord": "Em",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

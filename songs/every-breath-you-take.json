@@ -1,0 +1,74 @@
+{
+  "title": "Every Breath You Take",
+  "artist": "The Police",
+  "key": "G",
+  "tempo": 117,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "Em",
+          "beats": 4
+        },
+        {
+          "chord": "Em",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Bridge",
+      "chords": [
+        {
+          "chord": "Eb",
+          "beats": 4
+        },
+        {
+          "chord": "Eb",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

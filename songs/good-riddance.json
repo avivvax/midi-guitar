@@ -1,0 +1,74 @@
+{
+  "title": "Good Riddance (Time of Your Life)",
+  "artist": "Green Day",
+  "key": "G",
+  "tempo": 95,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 2
+        },
+        {
+          "chord": "D",
+          "beats": 2
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 2
+        },
+        {
+          "chord": "D",
+          "beats": 2
+        }
+      ]
+    },
+    {
+      "name": "Chorus",
+      "chords": [
+        {
+          "chord": "Em",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "Em",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

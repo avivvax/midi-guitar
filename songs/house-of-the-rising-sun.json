@@ -1,0 +1,77 @@
+{
+  "title": "The House of the Rising Sun",
+  "artist": "The Animals",
+  "key": "Am",
+  "tempo": 117,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "Am",
+          "beats": 3
+        },
+        {
+          "chord": "C",
+          "beats": 3
+        },
+        {
+          "chord": "D",
+          "beats": 3
+        },
+        {
+          "chord": "F",
+          "beats": 3
+        },
+        {
+          "chord": "Am",
+          "beats": 3
+        },
+        {
+          "chord": "C",
+          "beats": 3
+        },
+        {
+          "chord": "E",
+          "beats": 3
+        },
+        {
+          "chord": "E",
+          "beats": 3
+        },
+        {
+          "chord": "Am",
+          "beats": 3
+        },
+        {
+          "chord": "C",
+          "beats": 3
+        },
+        {
+          "chord": "D",
+          "beats": 3
+        },
+        {
+          "chord": "F",
+          "beats": 3
+        },
+        {
+          "chord": "Am",
+          "beats": 3
+        },
+        {
+          "chord": "E",
+          "beats": 3
+        },
+        {
+          "chord": "Am",
+          "beats": 3
+        },
+        {
+          "chord": "E",
+          "beats": 3
+        }
+      ]
+    }
+  ]
+}

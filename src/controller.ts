@@ -7,6 +7,8 @@ import type { DetectorResult } from './input/strumDetector';
 import type { GuitarEvent, GuitarInput, TransportId } from './input/types';
 import { WebMidiInput } from './input/webMidi';
 import { chordName, noteNameOct } from './music/theory';
+import { symbolToChord } from './song/chordSymbol';
+import { Metronome, displaySymbol, songActive, songChordForHit, songSettings, stepsOf } from './song/session';
 import { currentChord, tuningNotes, useStore, voicingFor } from './state/store';
 
 /**
@@ -65,12 +67,25 @@ export async function ensureAudio(): Promise<void> {
   if (!useStore.getState().audioReady) useStore.getState().set({ audioReady: true });
 }
 
+/** Pre-render the notes about to be played: palette chord, or current + next song chord. */
 function warmCurrentChord() {
   if (!engine) return;
   const s = useStore.getState();
   const tuning = tuningNotes(s);
-  const v = voicingFor(currentChord(s), tuning);
-  engine.warm(v.flatMap((f, i) => (f === null ? [] : [tuning[i] + s.capo + f])));
+  const song = songActive(s);
+  let chords = [currentChord(s)];
+  if (song) {
+    const steps = stepsOf(song);
+    const t = songSettings(s, song).transpose;
+    chords = [steps[s.player.pos], steps[s.player.pos + 1]]
+      .filter(Boolean)
+      .map((st) => symbolToChord(displaySymbol(st.chord, t)))
+      .filter((c): c is NonNullable<typeof c> => c !== null);
+  }
+  const midis = chords.flatMap((c) =>
+    voicingFor(c, tuning).flatMap((f, i) => (f === null ? [] : [tuning[i] + s.capo + f])),
+  );
+  engine.warm([...new Set(midis)]);
 }
 
 useStore.subscribe((s, prev) => {
@@ -81,7 +96,16 @@ useStore.subscribe((s, prev) => {
     }
     if (s.volume !== prev.volume) engine.setVolume(s.volume);
     if (s.reverb !== prev.reverb) engine.setReverb(s.reverb);
-    if (s.selectedSlot !== prev.selectedSlot || s.palette !== prev.palette || s.capo !== prev.capo || s.tuningId !== prev.tuningId)
+    if (
+      s.selectedSlot !== prev.selectedSlot ||
+      s.palette !== prev.palette ||
+      s.capo !== prev.capo ||
+      s.tuningId !== prev.tuningId ||
+      s.player.pos !== prev.player.pos ||
+      s.songId !== prev.songId ||
+      s.songView !== prev.songView ||
+      s.songPrefs !== prev.songPrefs
+    )
       warmCurrentChord();
   }
   if (s.detector !== prev.detector && input instanceof SerialInput) input.detector.setParams(s.detector);
@@ -114,10 +138,12 @@ export function handleEvent(e: GuitarEvent): void {
     log('fret', `S${e.string + 1} fret ${e.fret ?? 'muted'}`);
     return;
   }
-  // Strum.
+  // Strum. In the song player the song decides the chord (and may advance on this strum).
   const string = e.string;
   const tuning = tuningNotes(s);
-  const fret = s.mode === 'chord' ? voicingFor(currentChord(s), tuning)[string] : live.frets[string];
+  const songChord = songChordForHit(e.t ?? performance.now());
+  const chord = songChord ?? currentChord(s);
+  const fret = songChord || s.mode === 'chord' ? voicingFor(chord, tuning)[string] : live.frets[string];
   const now = performance.now();
   live.strumAt[string] = now;
   live.strumVel[string] = e.velocity;
@@ -146,7 +172,7 @@ export function handleEvent(e: GuitarEvent): void {
     live.latency.push({ proc, total: proc + engine.outputLatencyMs });
     if (live.latency.length > 50) live.latency.shift();
   }
-  const ctx = s.mode === 'chord' ? ` [${chordName(currentChord(s))}]` : '';
+  const ctx = songChord || s.mode === 'chord' ? ` [${chordName(chord)}]` : '';
   log('strum', `S${string + 1} ${label}${ctx} vel ${e.velocity.toFixed(2)}`);
 }
 
@@ -218,6 +244,23 @@ export function disconnect(): void {
     log('info', 'Disconnected');
   }
   useStore.getState().set({ status: 'idle', transport: null, deviceName: '' });
+}
+
+let metronome: Metronome | null = null;
+
+/** Start/stop tempo-mode playback (call from a user gesture). */
+export async function setSongPlaying(on: boolean): Promise<void> {
+  const { set } = useStore.getState();
+  if (!on) {
+    metronome?.stop();
+    set({ playing: false });
+    return;
+  }
+  await ensureAudio();
+  if (!engine) return;
+  metronome ??= new Metronome(engine);
+  set({ playing: true });
+  metronome.start();
 }
 
 export function getSerialDetector() {

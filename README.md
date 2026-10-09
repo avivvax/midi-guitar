@@ -13,7 +13,7 @@ A mobile-first Progressive Web App that turns a DIY 6-string MIDI guitar into a 
 ```bash
 npm ci
 npm run dev          # http://localhost:5173 (localhost counts as a secure context)
-npm test             # unit tests: strum detector, BLE-MIDI parser, voicings, Karplus-Strong
+npm test             # unit tests: strum detector, BLE-MIDI parser, voicings, Karplus-Strong, chord-sheet parser, song advance logic, seed songs
 npm run build        # typecheck + production build into dist/ (with service worker)
 npm run preview      # serve dist/ on http://localhost:4173
 ```
@@ -26,10 +26,40 @@ To test on a phone from the dev server, use `npm run dev -- --host` and open it 
 | --- | --- |
 | **חיבור / Connect** | Pick a transport. Shows the connection status and a live 6-bar signal meter. |
 | **נגינה / Play** | 8-slot chord palette (thumb zone), current chord with its diagram, capo −/+, chord/free mode, instrument, and 6 animated strings. Tap a string to pluck it, or drag across the strings to strum. |
+| **שירים / Songs** | Song library, player (tempo / strum-count / manual advance) and chord-sheet import. See "Song mode" below. |
 | **הגדרות / Settings** | Tuning (presets plus a custom per-string editor), key, chord editor (filter to chords in the key), volume, reverb, MIDI out. |
 | **דיבאג / Debug** | Scope of the per-string signals with the threshold line, live-tunable detector parameters, strum→sound latency, and an event log. |
 
 Settings are saved in `localStorage`.
+
+## Song mode (שירים)
+
+The **שירים / Songs** tab is a library of chord progressions (no lyrics) that you play along with.
+
+- **Library:** search by title or artist, mark favorites with ★, filter by All / Favorites / Mine. Songs you imported can be deleted.
+- **Player:** the current chord in large type with its diagram, the next chord smaller, the section name, and section chips to jump between sections. It also has transpose ±, loop section and restart. The large **הבא** (next) button sits at the bottom, in the thumb zone.
+- **Advance modes,** switchable while playing:
+  - **טמפו / Tempo:** a metronome on the audio clock, with an optional click (accented every 4 beats). The song advances by each chord's `beats`. You can adjust the BPM per song.
+  - **פריטות / Strum count:** the song advances after N strums (default 4, settable per song, or set in the song file with `strumsPerChord`). String hits less than 90 ms apart count as one strum. The strum after the N-th one switches the chord, so a strum never changes chord halfway through.
+  - **ידני / Manual:** tap the chord area or the **הבא** button.
+- **Playing a song:** while a song is open, strums from any input play the current song chord's voicing. The capo and tuning settings apply, the same as in chord mode. Song chords are the *shapes* you play. If a song has a `capo` value, the player suggests applying it.
+- **Import:** paste a chord sheet, either ChordPro (`[Am]` inline chords and `{title}` / `{soc}` / `{comment: Verse}` directives) or plain text with chords above the lyrics (`[Chorus]`, `Verse 2:`, `פזמון`, `Intro: Am G C`, `| Am G |` bars, `x2` repeats). The parser keeps the chords and section names. **Lyrics are discarded and never stored.** You name the song and save it; it is stored in `localStorage`.
+
+### Song files
+
+Seed songs are `songs/*.json`, one file per song, and the file name is the song id. They are bundled at build time:
+
+```json
+{
+  "title": "Let It Be", "artist": "The Beatles", "key": "C", "tempo": 72,
+  "capo": 0, "strumsPerChord": 4,
+  "sections": [ { "name": "Verse", "chords": [ { "chord": "C", "beats": 4 }, { "chord": "G", "beats": 4 } ] } ]
+}
+```
+
+`capo` and `strumsPerChord` are optional. A chord can be any common symbol (`Am7`, `G/B`, `Dsus4`, `Bm7b5`, `D6/9`, …). Extensions map to the nearest voicing the engine knows, and the bass note of a slash chord is not voiced. `npm test` checks that every seed song is valid and that all of its chords parse.
+
+The seeds are simplified, common-practice progressions written from memory, not transcriptions. The Hebrew seeds are traditional and folk songs. Correct a file or import your own version if a progression differs from what you play.
 
 ## Transports
 
@@ -164,6 +194,7 @@ firmware/  ESP32-S3 BLE-MIDI firmware (Arduino) – see firmware/README.md and f
 src/
   input/   types, strumDetector (+tests), serial, bleMidi, webMidi, keyboard, midiMapping (+tests)
   music/   theory: notes, tunings, chords, voicings, keys (+tests)
+  song/    chord symbols, chord-sheet parser, advance logic, library, session/metronome (+tests)
   audio/   engine (voices, instruments, reverb), karplus (+tests), midiOut
   state/   zustand store (persisted settings)
   ui/      Connect, Play, Settings, Debug, SignalMeter, StringsView, ChordDiagram

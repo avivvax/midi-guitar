@@ -5,7 +5,7 @@
   border-radius: 10px; padding: 10px; margin-bottom: 10px;
 }
 .tabs {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
   border-top: 1px solid var(--line); background: var(--panel);
   padding: 6px 6px max(6px, env(safe-area-inset-bottom));
 }

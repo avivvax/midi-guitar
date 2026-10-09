@@ -1,0 +1,82 @@
+{
+  "title": "עושה שלום",
+  "artist": "נורית הירש",
+  "key": "Am",
+  "tempo": 96,
+  "sections": [
+    {
+      "name": "בית",
+      "chords": [
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "Dm",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "Dm",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "פזמון",
+      "chords": [
+        {
+          "chord": "Dm",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "Dm",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

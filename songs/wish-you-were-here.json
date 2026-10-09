@@ -1,0 +1,86 @@
+{
+  "title": "Wish You Were Here",
+  "artist": "Pink Floyd",
+  "key": "G",
+  "tempo": 60,
+  "sections": [
+    {
+      "name": "Intro",
+      "chords": [
+        {
+          "chord": "Em",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "Em",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "Em",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        },
+        {
+          "chord": "Em",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "D/F#",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "D/F#",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

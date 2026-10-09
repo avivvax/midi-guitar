@@ -1,0 +1,50 @@
+{
+  "title": "Creep",
+  "artist": "Radiohead",
+  "key": "G",
+  "tempo": 92,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "B",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "Cm",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Chorus",
+      "chords": [
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "B",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "Cm",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

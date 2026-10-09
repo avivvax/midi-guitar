@@ -1,0 +1,41 @@
+{
+  "title": "Happy Birthday",
+  "artist": "Traditional",
+  "key": "C",
+  "tempo": 100,
+  "sections": [
+    {
+      "name": "Song",
+      "chords": [
+        {
+          "chord": "C",
+          "beats": 3
+        },
+        {
+          "chord": "G",
+          "beats": 6
+        },
+        {
+          "chord": "C",
+          "beats": 6
+        },
+        {
+          "chord": "F",
+          "beats": 3
+        },
+        {
+          "chord": "C",
+          "beats": 3
+        },
+        {
+          "chord": "G",
+          "beats": 3
+        },
+        {
+          "chord": "C",
+          "beats": 3
+        }
+      ]
+    }
+  ]
+}

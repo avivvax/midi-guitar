@@ -1,0 +1,66 @@
+{
+  "title": "Sweet Home Alabama",
+  "artist": "Lynyrd Skynyrd",
+  "key": "D",
+  "tempo": 98,
+  "sections": [
+    {
+      "name": "Riff",
+      "chords": [
+        {
+          "chord": "D",
+          "beats": 2
+        },
+        {
+          "chord": "C",
+          "beats": 2
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 2
+        },
+        {
+          "chord": "C",
+          "beats": 2
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Chorus",
+      "chords": [
+        {
+          "chord": "D",
+          "beats": 2
+        },
+        {
+          "chord": "C",
+          "beats": 2
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 2
+        },
+        {
+          "chord": "C",
+          "beats": 2
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

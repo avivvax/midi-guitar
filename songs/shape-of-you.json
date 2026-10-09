@@ -1,0 +1,29 @@
+{
+  "title": "Shape of You",
+  "artist": "Ed Sheeran",
+  "key": "C#m",
+  "tempo": 96,
+  "sections": [
+    {
+      "name": "Loop",
+      "chords": [
+        {
+          "chord": "C#m",
+          "beats": 4
+        },
+        {
+          "chord": "F#m",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        },
+        {
+          "chord": "B",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

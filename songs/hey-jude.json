@@ -1,0 +1,128 @@
+{
+  "title": "Hey Jude",
+  "artist": "The Beatles",
+  "key": "F",
+  "tempo": 74,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "C7",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "Bb",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "C7",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Verse 2",
+      "chords": [
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "C7",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "Bb",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "C7",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Bridge",
+      "chords": [
+        {
+          "chord": "F7",
+          "beats": 4
+        },
+        {
+          "chord": "Bb",
+          "beats": 4
+        },
+        {
+          "chord": "Gm7",
+          "beats": 4
+        },
+        {
+          "chord": "C7",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Coda",
+      "chords": [
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "Eb",
+          "beats": 4
+        },
+        {
+          "chord": "Bb",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

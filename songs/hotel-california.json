@@ -1,0 +1,82 @@
+{
+  "title": "Hotel California",
+  "artist": "Eagles",
+  "key": "Bm",
+  "tempo": 74,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "Bm",
+          "beats": 4
+        },
+        {
+          "chord": "F#",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "Em",
+          "beats": 4
+        },
+        {
+          "chord": "F#",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Chorus",
+      "chords": [
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "F#",
+          "beats": 4
+        },
+        {
+          "chord": "Bm",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "Em",
+          "beats": 4
+        },
+        {
+          "chord": "F#",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

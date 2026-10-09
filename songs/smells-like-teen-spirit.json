@@ -1,0 +1,45 @@
+{
+  "title": "Smells Like Teen Spirit",
+  "artist": "Nirvana",
+  "key": "F",
+  "tempo": 117,
+  "sections": [
+    {
+      "name": "Riff",
+      "chords": [
+        {
+          "chord": "F5",
+          "beats": 2
+        },
+        {
+          "chord": "Bb5",
+          "beats": 2
+        },
+        {
+          "chord": "Ab5",
+          "beats": 2
+        },
+        {
+          "chord": "Db5",
+          "beats": 2
+        },
+        {
+          "chord": "F5",
+          "beats": 2
+        },
+        {
+          "chord": "Bb5",
+          "beats": 2
+        },
+        {
+          "chord": "Ab5",
+          "beats": 2
+        },
+        {
+          "chord": "Db5",
+          "beats": 2
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "title": "Bad Moon Rising",
+  "artist": "Creedence Clearwater Revival",
+  "key": "D",
+  "tempo": 180,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 2
+        },
+        {
+          "chord": "G",
+          "beats": 2
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Chorus",
+      "chords": [
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

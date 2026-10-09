@@ -1,0 +1,50 @@
+{
+  "title": "Hey, Soul Sister",
+  "artist": "Train",
+  "key": "E",
+  "tempo": 97,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "B",
+          "beats": 4
+        },
+        {
+          "chord": "C#m",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Chorus",
+      "chords": [
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "B",
+          "beats": 4
+        },
+        {
+          "chord": "C#m",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "title": "Twist and Shout",
+  "artist": "The Beatles",
+  "key": "D",
+  "tempo": 126,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

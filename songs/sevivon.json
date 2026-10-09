@@ -1,0 +1,45 @@
+{
+  "title": "סביבון",
+  "artist": "עממי",
+  "key": "Am",
+  "tempo": 120,
+  "sections": [
+    {
+      "name": "בית",
+      "chords": [
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "Am",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "title": "Hey Ya!",
+  "artist": "OutKast",
+  "key": "G",
+  "tempo": 159,
+  "sections": [
+    {
+      "name": "Loop",
+      "chords": [
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "title": "Clocks",
+  "artist": "Coldplay",
+  "key": "Eb",
+  "tempo": 131,
+  "sections": [
+    {
+      "name": "Riff",
+      "chords": [
+        {
+          "chord": "Eb",
+          "beats": 4
+        },
+        {
+          "chord": "Bbm",
+          "beats": 4
+        },
+        {
+          "chord": "Bbm",
+          "beats": 4
+        },
+        {
+          "chord": "Fm",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

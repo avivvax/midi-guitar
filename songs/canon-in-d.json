@@ -1,0 +1,45 @@
+{
+  "title": "Canon in D",
+  "artist": "Johann Pachelbel",
+  "key": "D",
+  "tempo": 60,
+  "sections": [
+    {
+      "name": "Progression",
+      "chords": [
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        },
+        {
+          "chord": "Bm",
+          "beats": 4
+        },
+        {
+          "chord": "F#m",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

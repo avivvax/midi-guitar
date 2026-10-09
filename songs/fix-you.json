@@ -1,0 +1,82 @@
+{
+  "title": "Fix You",
+  "artist": "Coldplay",
+  "key": "Eb",
+  "tempo": 70,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "Eb",
+          "beats": 4
+        },
+        {
+          "chord": "Gm",
+          "beats": 4
+        },
+        {
+          "chord": "Cm",
+          "beats": 4
+        },
+        {
+          "chord": "Bb",
+          "beats": 4
+        },
+        {
+          "chord": "Eb",
+          "beats": 4
+        },
+        {
+          "chord": "Gm",
+          "beats": 4
+        },
+        {
+          "chord": "Cm",
+          "beats": 4
+        },
+        {
+          "chord": "Bb",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Chorus",
+      "chords": [
+        {
+          "chord": "Ab",
+          "beats": 4
+        },
+        {
+          "chord": "Eb",
+          "beats": 4
+        },
+        {
+          "chord": "Bb",
+          "beats": 4
+        },
+        {
+          "chord": "Bb",
+          "beats": 4
+        },
+        {
+          "chord": "Ab",
+          "beats": 4
+        },
+        {
+          "chord": "Eb",
+          "beats": 4
+        },
+        {
+          "chord": "Bb",
+          "beats": 4
+        },
+        {
+          "chord": "Bb",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

@@ -4,9 +4,19 @@ import type { InstrumentId } from '../audio/engine';
 import { DEFAULT_DETECTOR_PARAMS, type DetectorParams } from '../input/strumDetector';
 import type { TransportId } from '../input/types';
 import { TUNINGS, defaultPalette, findVoicing, type Chord, type Key, type Voicing } from '../music/theory';
+import { initialState as initialPlayer, type AdvanceMode, type PlayerState } from '../song/player';
+import type { Song } from '../song/types';
 
 export type PlayMode = 'chord' | 'free';
-export type Screen = 'connect' | 'play' | 'settings' | 'debug';
+export type Screen = 'connect' | 'play' | 'songs' | 'settings' | 'debug';
+export type SongView = 'library' | 'player' | 'import';
+
+/** Per-song user overrides. */
+export interface SongPrefs {
+  transpose?: number;
+  strumsPerChord?: number;
+  tempo?: number;
+}
 export type ConnStatus = 'idle' | 'connecting' | 'connected' | 'error';
 
 export interface Settings {
@@ -22,6 +32,11 @@ export interface Settings {
   reverb: number;
   detector: DetectorParams;
   midiOutName: string | null;
+  favorites: string[];
+  userSongs: Song[];
+  songPrefs: Record<string, SongPrefs>;
+  advanceMode: AdvanceMode;
+  clickOn: boolean;
 }
 
 export interface Runtime {
@@ -31,6 +46,11 @@ export interface Runtime {
   statusMsg: string;
   deviceName: string;
   audioReady: boolean;
+  songView: SongView;
+  songId: string | null;
+  player: PlayerState;
+  /** Tempo mode metronome running. */
+  playing: boolean;
 }
 
 export interface Actions {
@@ -38,6 +58,12 @@ export interface Actions {
   setDetector: (p: Partial<DetectorParams>) => void;
   setPaletteSlot: (slot: number, chord: Chord) => void;
   setKey: (k: Key, resetPalette: boolean) => void;
+  toggleFavorite: (id: string) => void;
+  saveUserSong: (song: Song) => void;
+  deleteUserSong: (id: string) => void;
+  setSongPrefs: (id: string, p: SongPrefs) => void;
+  openSong: (id: string) => void;
+  setPlayer: (p: PlayerState) => void;
 }
 
 export type State = Settings & Runtime & Actions;
@@ -59,6 +85,11 @@ export const useStore = create<State>()(
       reverb: 0.2,
       detector: DEFAULT_DETECTOR_PARAMS,
       midiOutName: null,
+      favorites: [],
+      userSongs: [],
+      songPrefs: {},
+      advanceMode: 'strum',
+      clickOn: true,
 
       screen: 'connect',
       transport: null,
@@ -66,6 +97,10 @@ export const useStore = create<State>()(
       statusMsg: '',
       deviceName: '',
       audioReady: false,
+      songView: 'library',
+      songId: null,
+      player: initialPlayer(),
+      playing: false,
 
       set: (p) => set(p),
       setDetector: (p) => set((s) => ({ detector: { ...s.detector, ...p } })),
@@ -76,6 +111,19 @@ export const useStore = create<State>()(
           return { palette };
         }),
       setKey: (key, resetPalette) => set(resetPalette ? { key, palette: defaultPalette(key) } : { key }),
+      toggleFavorite: (id) =>
+        set((s) => ({ favorites: s.favorites.includes(id) ? s.favorites.filter((f) => f !== id) : [...s.favorites, id] })),
+      saveUserSong: (song) => set((s) => ({ userSongs: [...s.userSongs.filter((u) => u.id !== song.id), song] })),
+      deleteUserSong: (id) =>
+        set((s) => ({
+          userSongs: s.userSongs.filter((u) => u.id !== id),
+          favorites: s.favorites.filter((f) => f !== id),
+          songId: s.songId === id ? null : s.songId,
+          songView: s.songId === id ? 'library' : s.songView,
+        })),
+      setSongPrefs: (id, p) => set((s) => ({ songPrefs: { ...s.songPrefs, [id]: { ...s.songPrefs[id], ...p } } })),
+      openSong: (id) => set({ songId: id, songView: 'player', player: initialPlayer(), playing: false }),
+      setPlayer: (player) => set({ player }),
     }),
     {
       name: 'midi-guitar-settings',
@@ -93,6 +141,11 @@ export const useStore = create<State>()(
         reverb: s.reverb,
         detector: s.detector,
         midiOutName: s.midiOutName,
+        favorites: s.favorites,
+        userSongs: s.userSongs,
+        songPrefs: s.songPrefs,
+        advanceMode: s.advanceMode,
+        clickOn: s.clickOn,
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<Settings>;

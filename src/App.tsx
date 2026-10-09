@@ -5,11 +5,13 @@ import styles from './App.module.css';
 import Connect from './ui/Connect';
 import Play from './ui/Play';
 import Settings from './ui/Settings';
+import Songs from './ui/Songs';
 import Debug from './ui/Debug';
 
 const TABS: { id: Screen; label: string; icon: string }[] = [
   { id: 'connect', label: 'חיבור', icon: '🔌' },
   { id: 'play', label: 'נגינה', icon: '🎸' },
+  { id: 'songs', label: 'שירים', icon: '🎵' },
   { id: 'settings', label: 'הגדרות', icon: '⚙️' },
   { id: 'debug', label: 'דיבאג', icon: '📈' },
 ];
@@ -39,6 +41,7 @@ export default function App() {
         {!audioReady && <div className={styles.banner}>הקש בכל מקום כדי להפעיל את הסאונד</div>}
         {screen === 'connect' && <Connect />}
         {screen === 'play' && <Play />}
+        {screen === 'songs' && <Songs />}
         {screen === 'settings' && <Settings />}
         {screen === 'debug' && <Debug />}
       </main>

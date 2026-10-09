@@ -1,0 +1,29 @@
+{
+  "title": "Counting Stars",
+  "artist": "OneRepublic",
+  "key": "Am",
+  "tempo": 122,
+  "sections": [
+    {
+      "name": "Chorus",
+      "chords": [
+        {
+          "chord": "Am",
+          "beats": 4
+        },
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

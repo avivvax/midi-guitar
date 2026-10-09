@@ -1,0 +1,45 @@
+{
+  "title": "מעוז צור",
+  "artist": "עממי",
+  "key": "D",
+  "tempo": 96,
+  "sections": [
+    {
+      "name": "בית",
+      "chords": [
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

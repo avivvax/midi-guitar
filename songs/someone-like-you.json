@@ -1,0 +1,82 @@
+{
+  "title": "Someone Like You",
+  "artist": "Adele",
+  "key": "A",
+  "tempo": 67,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "A",
+          "beats": 4
+        },
+        {
+          "chord": "C#m",
+          "beats": 4
+        },
+        {
+          "chord": "F#m",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        },
+        {
+          "chord": "C#m",
+          "beats": 4
+        },
+        {
+          "chord": "F#m",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Chorus",
+      "chords": [
+        {
+          "chord": "A",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "F#m",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "A",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "F#m",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

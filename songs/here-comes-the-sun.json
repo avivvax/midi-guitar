@@ -1,0 +1,88 @@
+{
+  "title": "Here Comes the Sun",
+  "artist": "The Beatles",
+  "key": "D",
+  "tempo": 129,
+  "capo": 7,
+  "sections": [
+    {
+      "name": "Chorus",
+      "chords": [
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "A7",
+          "beats": 4
+        },
+        {
+          "chord": "A7",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "E7",
+          "beats": 4
+        },
+        {
+          "chord": "E7",
+          "beats": 4
+        },
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "A7",
+          "beats": 4
+        },
+        {
+          "chord": "A7",
+          "beats": 4
+        }
+      ]
+    },
+    {
+      "name": "Chorus 2",
+      "chords": [
+        {
+          "chord": "D",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "A7",
+          "beats": 4
+        },
+        {
+          "chord": "A7",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

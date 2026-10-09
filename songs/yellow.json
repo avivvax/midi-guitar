@@ -1,0 +1,45 @@
+{
+  "title": "Yellow",
+  "artist": "Coldplay",
+  "key": "B",
+  "tempo": 87,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "B",
+          "beats": 4
+        },
+        {
+          "chord": "B",
+          "beats": 4
+        },
+        {
+          "chord": "F#",
+          "beats": 4
+        },
+        {
+          "chord": "F#",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "E",
+          "beats": 4
+        },
+        {
+          "chord": "B",
+          "beats": 4
+        },
+        {
+          "chord": "B",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}

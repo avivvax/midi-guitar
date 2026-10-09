@@ -1,0 +1,29 @@
+{
+  "title": "La Bamba",
+  "artist": "Ritchie Valens",
+  "key": "C",
+  "tempo": 150,
+  "sections": [
+    {
+      "name": "Verse",
+      "chords": [
+        {
+          "chord": "C",
+          "beats": 4
+        },
+        {
+          "chord": "F",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        },
+        {
+          "chord": "G",
+          "beats": 4
+        }
+      ]
+    }
+  ]
+}
