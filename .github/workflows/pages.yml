@@ -7,6 +7,10 @@ on:
       - 'firmware/**'
       - '**.md'
   workflow_dispatch:
+  # Rebuild the Chordonomicon index after each name-resolution run.
+  workflow_run:
+    workflows: ['Resolve chord names']
+    types: [completed]
 
 permissions:
   contents: read
@@ -29,7 +33,37 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm test
+      - run: python3 -m unittest tools/chord_index/test_common.py
       - run: npm run build
+
+      # Chordonomicon index: generated at deploy time from the dataset and the
+      # cached name list (neither is committed). Skipped if no names exist yet.
+      - name: Restore dataset
+        id: csv
+        uses: actions/cache/restore@v4
+        with:
+          path: data/chordonomicon_v2.csv
+          key: chordonomicon-v2-f3a8b678
+      - name: Download dataset
+        if: steps.csv.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p data
+          curl -sSfL --retry 5 -o data/chordonomicon_v2.csv \
+            https://huggingface.co/datasets/ailsntua/Chordonomicon/resolve/f3a8b678bd65639c01caa342921733f1db01be23/chordonomicon_v2.csv
+      - name: Restore names
+        id: names
+        uses: actions/cache/restore@v4
+        with:
+          path: data/names.jsonl
+          key: chord-names-deploy-${{ github.run_id }}
+          restore-keys: chord-names-
+      - name: Build Chordonomicon index
+        if: steps.names.outputs.cache-matched-key != ''
+        run: |
+          python3 tools/chord_index/build_index.py --csv data/chordonomicon_v2.csv --names data/names.jsonl --out dist/cx
+          echo "### Chordonomicon index" >> "$GITHUB_STEP_SUMMARY"
+          python3 -c "import json;m=json.load(open('dist/cx/manifest.json'));print(f\"{m['songs']} songs, {m['artists']} artists, built {m['built']}\")" >> "$GITHUB_STEP_SUMMARY"
+          du -sh dist/cx >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -4,3 +4,5 @@ dev-dist
 .firebase
 *.log
 *.tsbuildinfo
+data/
+__pycache__/

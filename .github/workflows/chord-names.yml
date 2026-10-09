@@ -1,0 +1,71 @@
+name: Resolve chord names
+
+# Resolves Chordonomicon Spotify IDs to song/artist names via Spotify oEmbed,
+# politely (~6 req/s), resuming from the Actions cache. The name list never
+# enters git; the Pages deploy restores the latest cache to build the index.
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      budget_minutes:
+        description: 'Time budget for this run (minutes)'
+        default: '330'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chord-names
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Restore dataset
+        id: csv
+        uses: actions/cache/restore@v4
+        with:
+          path: data/chordonomicon_v2.csv
+          key: chordonomicon-v2-f3a8b678
+      - name: Download dataset
+        if: steps.csv.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p data
+          curl -sSfL --retry 5 -o data/chordonomicon_v2.csv \
+            https://huggingface.co/datasets/ailsntua/Chordonomicon/resolve/f3a8b678bd65639c01caa342921733f1db01be23/chordonomicon_v2.csv
+      - name: Save dataset
+        if: steps.csv.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: data/chordonomicon_v2.csv
+          key: chordonomicon-v2-f3a8b678
+
+      - name: Restore names
+        uses: actions/cache/restore@v4
+        with:
+          path: data/names.jsonl
+          key: chord-names-${{ github.run_id }}
+          restore-keys: chord-names-
+
+      - name: Resolve
+        id: resolve
+        run: |
+          touch data/names.jsonl
+          python3 tools/chord_index/resolve_names.py \
+            --csv data/chordonomicon_v2.csv --state data/names.jsonl \
+            --budget-minutes "${{ inputs.budget_minutes || '330' }}" --rate 6 --workers 4
+
+      - name: Save names
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/names.jsonl
+          key: chord-names-${{ github.run_id }}

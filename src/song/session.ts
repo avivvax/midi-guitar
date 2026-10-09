@@ -3,14 +3,24 @@ import type { Chord } from '../music/theory';
 import { useStore, type State } from '../state/store';
 import { symbolToChord, transposeSymbol } from './chordSymbol';
 import { SEED_SONGS } from './library';
-import { DEFAULT_STRUMS_PER_CHORD, flatten, onBeat, onStringHit, type Step } from './player';
+import { DEFAULT_STRUMS_PER_CHORD, flatten, onBeat, onStringHit, type AdvanceMode, type Step } from './player';
 import type { Song } from './types';
 
 /** Song playback glue: which chord is current, strum counting, metronome. */
 
-export function findSong(s: Pick<State, 'userSongs'>, id: string | null): Song | null {
+export function findSong(s: Pick<State, 'userSongs' | 'cachedSongs'>, id: string | null): Song | null {
   if (!id) return null;
-  return SEED_SONGS.find((x) => x.id === id) ?? s.userSongs.find((x) => x.id === id) ?? null;
+  return (
+    SEED_SONGS.find((x) => x.id === id) ??
+    s.userSongs.find((x) => x.id === id) ??
+    s.cachedSongs.find((x) => x.id === id) ??
+    null
+  );
+}
+
+/** Advance mode for a song: its own choice, else strum count for dataset songs, else the global mode. */
+export function advanceModeFor(s: Pick<State, 'songPrefs' | 'advanceMode'>, song: Song): AdvanceMode {
+  return s.songPrefs[song.id]?.advanceMode ?? (song.source === 'chordonomicon' ? 'strum' : s.advanceMode);
 }
 
 const stepCache = new WeakMap<Song, Step[]>();
@@ -52,7 +62,7 @@ export function songChordForHit(t: number): Chord | null {
   if (!song) return null;
   const steps = stepsOf(song);
   const cfg = songSettings(s, song);
-  if (s.advanceMode === 'strum') {
+  if (advanceModeFor(s, song) === 'strum') {
     const next = onStringHit(steps, s.player, t, cfg.strumsPerChord);
     if (next !== s.player) s.setPlayer(next);
   }
@@ -97,7 +107,7 @@ export class Metronome {
   private pump(): void {
     const s = useStore.getState();
     const song = findSong(s, s.songId);
-    if (!song || !s.playing || s.advanceMode !== 'tempo') {
+    if (!song || !s.playing || advanceModeFor(s, song) !== 'tempo') {
       this.stop();
       if (s.playing) s.set({ playing: false });
       return;

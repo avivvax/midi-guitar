@@ -157,6 +157,56 @@ Debug → "השהיה" (latency) shows:
 - **Audio output:** `baseLatency + outputLatency` reported by the browser.
 - **Total (est.):** the sum of the two. It does not include the BLE connection interval or the serial peak window (6 ms by default).
 
+## Chordonomicon song index
+
+The Songs tab also searches about **430,000 chord progressions** from the [Chordonomicon](https://huggingface.co/datasets/ailsntua/Chordonomicon) dataset. The index is static, sharded JSON served from GitHub Pages; there is no backend.
+
+> **License: CC BY-NC 4.0 (non-commercial).** The Chordonomicon data may only be used non-commercially and with attribution. **The Chordonomicon index must be replaced before any commercial use of this app.** That means removing `dist/cx` from the deploy and dropping the resolver workflow, or swapping in a commercially licensed source. The app code itself is unaffected.
+>
+> Kantarelis, S., Thomas, K., Lyberatos, V., Dervakos, E., & Stamou, G. (2024). *CHORDONOMICON: A Dataset of 666,000 Songs and their Chord Progressions.* arXiv:2410.22046. https://doi.org/10.48550/arXiv.2410.22046
+
+The attribution also appears in the app, under the song library and in the player for dataset songs, and in `cx/ATTRIBUTION.txt` on the deployed site.
+
+**In the app:** typing 2 or more letters in the Songs search shows a "מהמאגר" (from the index) list under the local results.
+- Search downloads one title file and one artist file for the most specific word in the query. Matching is by word prefix on title and artist.
+- Opening a song downloads one file of song bodies. The song is then kept on the device, so favorites work offline.
+- Dataset songs open in **strum-count** mode by default; each dataset song remembers its own mode.
+- The dataset has no chord durations, so every chord counts as 4 beats. The key is estimated from the chords.
+
+**How the index is produced** (`tools/chord_index/`, Python standard library only):
+
+| Step | Where | What |
+| --- | --- | --- |
+| Name resolution | `.github/workflows/chord-names.yml` → `resolve_names.py` | The dataset has Spotify IDs but no names. Every 6 hours, a run resolves IDs to titles and artist names via Spotify oEmbed, politely: about 6 requests/second, 4 in parallel, backing off and slowing down on throttling, with retries. Progress is kept in the **GitHub Actions cache** (`chord-names-*`); the name list is never committed. Artists with the most songs are resolved first. |
+| Index build | `pages.yml` → `build_index.py` | On every deploy (and after every resolver run), the dataset CSV (pinned revision, cached) and the latest name list produce `dist/cx/`. |
+
+The build:
+- converts chords (`Fsmin` → `F#m`, `no3d` → `5`, `add13` → `6`, and `Cssus4` → `C#sus4`, where `s` means sharp but not inside "sus") and sections (`<verse_2>` → "Verse 2")
+- strips release suffixes from titles ("– Remastered 2009")
+- keeps one transcription per title and artist (the longest)
+- stores each repeated section pattern once
+- does **not** publish Spotify IDs
+
+Layout of `dist/cx/`:
+- `manifest.json`: counts, the build stamp, and how deep busy prefixes are split
+- `c/<n>.json`: song bodies, 400 per file (about 15 KB gzipped each)
+- `t/<hex prefix>.json`, `a/<hex prefix>.json`: search files keyed by the first letters of each word in titles and artists. Busy prefixes are split deeper. Typical files are about 1 KB gzipped; the largest ("love") is about 200 KB. Common words such as "the" and "you" are not indexed.
+- In total about 220 MB at full coverage, within the GitHub Pages limits.
+
+Shard URLs carry `?v=<build>`. The service worker caches the files that have been used (manifest network-first, shards cache-first) and never pre-loads the whole index.
+
+Run it locally:
+
+```bash
+curl -L -o data/chordonomicon_v2.csv https://huggingface.co/datasets/ailsntua/Chordonomicon/resolve/main/chordonomicon_v2.csv
+python3 tools/chord_index/resolve_names.py --csv data/chordonomicon_v2.csv --state data/names.jsonl --limit 500
+npm run build && python3 tools/chord_index/build_index.py --csv data/chordonomicon_v2.csv --names data/names.jsonl --out dist/cx
+npm run preview
+python3 -m unittest tools/chord_index/test_common.py
+```
+
+(`data/` is git-ignored.)
+
 ## Deploy to GitHub Pages (default)
 
 The workflow `.github/workflows/pages.yml` runs on every push to `main`, except pushes that only change `firmware/` or Markdown files. You can also start it by hand from the Actions tab. It runs `npm ci`, `npm test` and `npm run build`, then publishes `dist/` to GitHub Pages.
@@ -194,7 +244,8 @@ firmware/  ESP32-S3 BLE-MIDI firmware (Arduino) – see firmware/README.md and f
 src/
   input/   types, strumDetector (+tests), serial, bleMidi, webMidi, keyboard, midiMapping (+tests)
   music/   theory: notes, tunings, chords, voicings, keys (+tests)
-  song/    chord symbols, chord-sheet parser, advance logic, library, session/metronome (+tests)
+  song/    chord symbols, chord-sheet parser, advance logic, library, session/metronome, Chordonomicon index client (+tests)
+tools/chord_index/  name resolver + static index builder for the Chordonomicon dataset (Python, stdlib)
   audio/   engine (voices, instruments, reverb), karplus (+tests), midiOut
   state/   zustand store (persisted settings)
   ui/      Connect, Play, Settings, Debug, SignalMeter, StringsView, ChordDiagram

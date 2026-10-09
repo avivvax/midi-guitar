@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { ensureAudio, setSongPlaying } from '../controller';
 import { symbolToChord, transposeKey } from '../song/chordSymbol';
 import { next, prev, restart, jumpToSection, type AdvanceMode } from '../song/player';
-import { displaySymbol, findSong, songSettings, stepsOf } from '../song/session';
+import { advanceModeFor, displaySymbol, findSong, songSettings, stepsOf } from '../song/session';
 import { tuningNotes, useStore, voicingFor } from '../state/store';
 import ChordDiagram from './ChordDiagram';
 import styles from './Songs.module.css';
@@ -42,7 +42,8 @@ export default function SongPlayer() {
   const nextSym = nxt ? displaySymbol(nxt.chord, cfg.transpose) : null;
   const curChord = symbolToChord(curSym);
   const fav = s.favorites.includes(song.id);
-  const mode = s.advanceMode;
+  const mode = advanceModeFor(s, song);
+  const isDataset = song.source === 'chordonomicon';
   const setPrefs = (patch: Parameters<typeof s.setSongPrefs>[1]) => s.setSongPrefs(song.id, patch);
 
   const go = (fn: () => typeof p) => {
@@ -138,7 +139,10 @@ export default function SongPlayer() {
             className={mode === m.id ? styles.segOn : ''}
             onClick={() => {
               if (m.id !== 'tempo') void setSongPlaying(false);
-              s.set({ advanceMode: m.id, player: { ...p, beat: 0, strums: 0 } });
+              // Dataset songs remember their own mode (default: strum count); others share the global one.
+              if (isDataset) s.setSongPrefs(song.id, { advanceMode: m.id });
+              else s.set({ advanceMode: m.id });
+              s.setPlayer({ ...p, beat: 0, strums: 0 });
             }}
           >
             {m.label}
@@ -190,6 +194,14 @@ export default function SongPlayer() {
           ⏮
         </button>
       </div>
+
+      {isDataset && (
+        <p className={styles.credit}>
+          {[song.genre, song.year].filter(Boolean).join(' · ')}
+          {song.genre || song.year ? ' · ' : ''}
+          אקורדים: <a href="https://huggingface.co/datasets/ailsntua/Chordonomicon" target="_blank" rel="noreferrer">Chordonomicon</a> (CC BY-NC 4.0) · אורך כל אקורד משוער
+        </p>
+      )}
 
       <div className={styles.bottom}>
         <button className={styles.prevBtn} onClick={() => go(() => prev(steps, p))} aria-label="אקורד קודם">

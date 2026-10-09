@@ -32,6 +32,27 @@ export default defineConfig(({ command, isPreview }) => ({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+        // The Chordonomicon index (cx/) is never precached; shards are cached as they are used.
+        globIgnores: ['cx/**'],
+        navigateFallbackDenylist: [/\/cx\//],
+        runtimeCaching: [
+          {
+            // Manifest changes on every index build: prefer the network, fall back offline.
+            urlPattern: ({ url }) => url.pathname.endsWith('/cx/manifest.json'),
+            handler: 'NetworkFirst',
+            options: { cacheName: 'cx-manifest', networkTimeoutSeconds: 4 },
+          },
+          {
+            // Shard URLs carry ?v=<build>, so cache-first is safe across rebuilds.
+            urlPattern: ({ url }) => url.pathname.includes('/cx/') && !url.pathname.endsWith('manifest.json'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'cx-shards',
+              expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 60 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+        ],
       },
     }),
   ],

@@ -16,7 +16,11 @@ export interface SongPrefs {
   transpose?: number;
   strumsPerChord?: number;
   tempo?: number;
+  advanceMode?: AdvanceMode;
 }
+
+/** Dataset songs kept on the device (favorites always; plus the most recent ones). */
+export const RECENT_DATASET_SONGS = 40;
 export type ConnStatus = 'idle' | 'connecting' | 'connected' | 'error';
 
 export interface Settings {
@@ -34,6 +38,8 @@ export interface Settings {
   midiOutName: string | null;
   favorites: string[];
   userSongs: Song[];
+  /** Songs opened from the Chordonomicon index, cached for offline use and favorites. */
+  cachedSongs: Song[];
   songPrefs: Record<string, SongPrefs>;
   advanceMode: AdvanceMode;
   clickOn: boolean;
@@ -61,6 +67,7 @@ export interface Actions {
   toggleFavorite: (id: string) => void;
   saveUserSong: (song: Song) => void;
   deleteUserSong: (id: string) => void;
+  cacheSong: (song: Song) => void;
   setSongPrefs: (id: string, p: SongPrefs) => void;
   openSong: (id: string) => void;
   setPlayer: (p: PlayerState) => void;
@@ -87,6 +94,7 @@ export const useStore = create<State>()(
       midiOutName: null,
       favorites: [],
       userSongs: [],
+      cachedSongs: [],
       songPrefs: {},
       advanceMode: 'strum',
       clickOn: true,
@@ -121,6 +129,16 @@ export const useStore = create<State>()(
           songId: s.songId === id ? null : s.songId,
           songView: s.songId === id ? 'library' : s.songView,
         })),
+      cacheSong: (song) =>
+        set((s) => {
+          const rest = s.cachedSongs.filter((c) => c.id !== song.id);
+          // Most recent first; drop the oldest non-favorites beyond the cap.
+          const next = [song, ...rest];
+          let kept = 0;
+          return {
+            cachedSongs: next.filter((c) => s.favorites.includes(c.id) || ++kept <= RECENT_DATASET_SONGS),
+          };
+        }),
       setSongPrefs: (id, p) => set((s) => ({ songPrefs: { ...s.songPrefs, [id]: { ...s.songPrefs[id], ...p } } })),
       openSong: (id) => set({ songId: id, songView: 'player', player: initialPlayer(), playing: false }),
       setPlayer: (player) => set({ player }),
@@ -143,6 +161,7 @@ export const useStore = create<State>()(
         midiOutName: s.midiOutName,
         favorites: s.favorites,
         userSongs: s.userSongs,
+        cachedSongs: s.cachedSongs,
         songPrefs: s.songPrefs,
         advanceMode: s.advanceMode,
         clickOn: s.clickOn,
