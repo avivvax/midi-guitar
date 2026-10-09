@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bodyToSong, matches, normalize, pickWord, prefixFile, rank, shardPrefix, stableId, type IndexRow } from './chordIndex';
+import { bodyToSong, hasShard, matches, normalize, pickWord, prefixFile, rank, shardPrefix, stableId, type IndexRow } from './chordIndex';
 import { parseChordSymbol } from './chordSymbol';
 
 describe('normalisation shared with the Python builder', () => {
@@ -25,6 +25,18 @@ describe('shard selection', () => {
     expect(shardPrefix('lost', depth)).toBe('los');
     expect(shardPrefix('lo', depth)).toBe('lo');
     expect(shardPrefix('hey', depth)).toBe('he');
+  });
+});
+
+describe('hasShard', () => {
+  const base = { version: 1, built: 'x', songs: 0, artists: 0, perBody: 400, minPrefix: 2, depth: { t: {}, a: {} }, license: '', attribution: '', citation: '' };
+  it('uses the manifest file list when present', () => {
+    const m = { ...base, files: { t: ['lo', 'ri'], a: ['ca'] } };
+    expect(hasShard(m, 't', 'ri')).toBe(true);
+    expect(hasShard(m, 'a', 'ri')).toBe(false);
+  });
+  it('assumes a shard exists for older manifests', () => {
+    expect(hasShard(base, 'a', 'zz')).toBe(true);
   });
 });
 

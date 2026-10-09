@@ -15,6 +15,8 @@ export interface IndexManifest {
   perBody: number;
   minPrefix: number;
   depth: { t: Record<string, number>; a: Record<string, number> };
+  /** Prefixes that have a shard file (absent in older manifests). */
+  files?: { t: string[]; a: string[] };
   license: string;
   attribution: string;
   citation: string;
@@ -125,6 +127,18 @@ export function bodyToSong(row: IndexRow, body: Body): Song {
 // ---------------------------------------------------------------------------
 const BASE = `${import.meta.env.BASE_URL}cx/`;
 let manifestP: Promise<IndexManifest | null> | null = null;
+const fileSets = new WeakMap<IndexManifest, { t: Set<string>; a: Set<string> }>();
+
+/** False when the manifest says there is no shard for this prefix (avoids 404s). */
+export function hasShard(m: IndexManifest, kind: 't' | 'a', prefix: string): boolean {
+  if (!m.files) return true;
+  let sets = fileSets.get(m);
+  if (!sets) {
+    sets = { t: new Set(m.files.t), a: new Set(m.files.a) };
+    fileSets.set(m, sets);
+  }
+  return sets[kind].has(prefix);
+}
 const shardCache = new Map<string, Promise<unknown>>();
 
 async function getJson<T>(url: string): Promise<T | null> {
@@ -161,10 +175,11 @@ export async function searchIndex(query: string, limit = 80): Promise<SearchResu
   const m = await loadManifest();
   const word = pickWord(query);
   if (!m || !word) return { rows: [], needMore: !word };
-  const [t, a] = await Promise.all([
-    shard<IndexRow[]>(`t/${prefixFile(shardPrefix(word, m.depth.t, m.minPrefix))}.json`, m),
-    shard<IndexRow[]>(`a/${prefixFile(shardPrefix(word, m.depth.a, m.minPrefix))}.json`, m),
-  ]);
+  const load = (kind: 't' | 'a') => {
+    const prefix = shardPrefix(word, m.depth[kind], m.minPrefix);
+    return hasShard(m, kind, prefix) ? shard<IndexRow[]>(`${kind}/${prefixFile(prefix)}.json`, m) : Promise.resolve([]);
+  };
+  const [t, a] = await Promise.all([load('t'), load('a')]);
   const seen = new Set<number>();
   const merged: IndexRow[] = [];
   for (const r of [...(t ?? []), ...(a ?? [])]) {

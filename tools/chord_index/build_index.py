@@ -153,6 +153,7 @@ def main():
     layout = {}
     for kind, words in (("t", t_words), ("a", a_words)):
         shards, depth = shard_prefixes(words, SPLIT_AT)
+        layout.setdefault("files", {})[kind] = sorted(shards)
         sizes = []
         for p, ws in shards.items():
             seen, rows = set(), []
@@ -174,6 +175,8 @@ def main():
         "perBody": PER_BODY,
         "minPrefix": 2,
         "depth": {"t": layout["t"]["depth"], "a": layout["a"]["depth"]},
+        # Prefixes that have a shard file, so clients never request a missing one.
+        "files": layout["files"],
         "license": "CC BY-NC 4.0",
         "attribution": ATTRIBUTION,
         "citation": CITATION,
@@ -181,7 +184,7 @@ def main():
     write_json(f"{out}/manifest.json", manifest)
     with open(f"{out}/ATTRIBUTION.txt", "w", encoding="utf-8") as f:
         f.write(ATTRIBUTION + "\n\nCitation:\n" + CITATION + "\n")
-    print(json.dumps({k: v for k, v in manifest.items() if k != "depth"}, ensure_ascii=False), flush=True)
+    print(json.dumps({k: v for k, v in manifest.items() if k not in ("depth", "files")}, ensure_ascii=False), flush=True)
 
 
 if __name__ == "__main__":
