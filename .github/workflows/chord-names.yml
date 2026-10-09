@@ -11,6 +11,9 @@ on:
       budget_minutes:
         description: 'Time budget for this run (minutes)'
         default: '330'
+      target_songs:
+        description: 'Stop once this many songs are resolved in total (0 = no target)'
+        default: '0'
 
 permissions:
   contents: read
@@ -61,7 +64,8 @@ jobs:
           touch data/names.jsonl
           python3 tools/chord_index/resolve_names.py \
             --csv data/chordonomicon_v2.csv --state data/names.jsonl \
-            --budget-minutes "${{ inputs.budget_minutes || '330' }}" --rate 6 --workers 4
+            --budget-minutes "${{ inputs.budget_minutes || '330' }}" \
+            --target-songs "${{ inputs.target_songs || '0' }}" --rate 6 --workers 4
 
       - name: Save names
         if: always()

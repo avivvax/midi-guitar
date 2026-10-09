@@ -107,6 +107,7 @@ def fetch(kind, sid, limiter, stats, max_tries=6):
 
 
 def load_state(path):
+    """Set of (kind, id) already looked up (resolved or known-missing)."""
     done = set()
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
@@ -141,6 +142,8 @@ def main():
     ap.add_argument("--rate", type=float, default=6.0, help="target requests/second")
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--limit", type=int, default=0, help="stop after N new lookups (testing)")
+    ap.add_argument("--target-songs", type=int, default=0,
+                    help="stop once this many songs have been looked up in total (0 = no target)")
     args = ap.parse_args()
 
     deadline = time.monotonic() + args.budget_minutes * 60
@@ -150,6 +153,18 @@ def main():
     print(f"already resolved {len(done)}, remaining {len(todo)} of {total}", flush=True)
     if args.limit:
         todo = todo[: args.limit]
+    if args.target_songs:
+        # Keep work items (artists + their songs, in order) until the song target is reached.
+        songs_done = sum(1 for k, _ in done if k == "s")
+        cut = len(todo)
+        for i, (kind, _) in enumerate(todo):
+            if songs_done >= args.target_songs:
+                cut = i
+                break
+            if kind == "s":
+                songs_done += 1
+        todo = todo[:cut]
+        print(f"song target {args.target_songs}: {len(todo)} lookups this run", flush=True)
 
     limiter = Limiter(args.rate)
     stats = Stats()
