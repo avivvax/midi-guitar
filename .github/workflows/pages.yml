@@ -33,7 +33,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm test
-      - run: python3 -m unittest tools/chord_index/test_common.py
+      - run: python3 -m unittest tools/chord_index/test_common.py tools/chord_index/test_limiter.py
       - run: npm run build
 
       # Chordonomicon index: generated at deploy time from the dataset and the

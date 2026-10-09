@@ -30,7 +30,13 @@ UA = "midi-guitar-chord-index/1.0 (+https://github.com/avivvax/midi-guitar; non-
 
 
 class Limiter:
-    """Shared token bucket with adaptive rate and a global pause on throttling."""
+    """Shared token bucket.
+
+    Only real throttling (HTTP 429) pauses everyone and halves the rate.
+    Sporadic 5xx / network errors are retried per request and only slow the
+    rate down if they become frequent (>10% of the last 200 requests).
+    The rate climbs back by 25% after every 100 consecutive successes.
+    """
 
     def __init__(self, rate, floor=0.5):
         self.target = rate
@@ -39,30 +45,41 @@ class Limiter:
         self.next_at = time.monotonic()
         self.pause_until = 0.0
         self.ok_streak = 0
+        self.recent = collections.deque(maxlen=200)  # True = error
         self.lock = threading.Lock()
 
     def acquire(self):
-        while True:
-            with self.lock:
-                now = time.monotonic()
-                start = max(now, self.next_at, self.pause_until)
-                self.next_at = start + 1.0 / self.rate
-                delay = start - now
-            if delay > 0:
-                time.sleep(delay)
-            return
+        with self.lock:
+            now = time.monotonic()
+            start = max(now, self.next_at, self.pause_until)
+            self.next_at = start + 1.0 / self.rate
+            delay = start - now
+        if delay > 0:
+            time.sleep(delay)
 
     def throttled(self, retry_after):
+        """HTTP 429: global pause and a real slowdown."""
         with self.lock:
             self.pause_until = max(self.pause_until, time.monotonic() + retry_after)
-            self.rate = max(self.floor, self.rate * 0.6)
+            self.rate = max(self.floor, self.rate * 0.5)
             self.ok_streak = 0
+            self.recent.append(True)
+
+    def soft_error(self):
+        """5xx / network error: slow down only if errors are frequent."""
+        with self.lock:
+            self.ok_streak = 0
+            self.recent.append(True)
+            if len(self.recent) >= 50 and sum(self.recent) / len(self.recent) > 0.10:
+                self.rate = max(self.floor, self.rate * 0.8)
+                self.recent.clear()
 
     def success(self):
         with self.lock:
+            self.recent.append(False)
             self.ok_streak += 1
-            if self.ok_streak >= 300 and self.rate < self.target:
-                self.rate = min(self.target, self.rate * 1.2)
+            if self.ok_streak >= 100 and self.rate < self.target:
+                self.rate = min(self.target, self.rate * 1.25)
                 self.ok_streak = 0
 
 
@@ -91,16 +108,22 @@ def fetch(kind, sid, limiter, stats, max_tries=6):
             if e.code in (400, 404):
                 stats.inc("gone")
                 return None
-            if e.code == 429 or e.code >= 500:
+            if e.code == 429:
                 ra = e.headers.get("Retry-After")
                 wait_s = float(ra) if ra and ra.replace(".", "", 1).isdigit() else min(300, 5 * 2 ** attempt)
-                stats.inc("throttled" if e.code == 429 else "server_error")
+                stats.inc("throttled")
                 limiter.throttled(wait_s + random.random())
+                continue
+            if e.code >= 500:
+                stats.inc("server_error")
+                limiter.soft_error()
+                time.sleep(min(30, 2 ** attempt) + random.random())
                 continue
             stats.inc(f"http_{e.code}")
             time.sleep(2 ** attempt)
         except Exception:  # timeouts, resets
             stats.inc("net_error")
+            limiter.soft_error()
             time.sleep(min(60, 2 ** attempt + random.random()))
     stats.inc("gave_up")
     return ...  # Ellipsis = unresolved this run; retried next run
