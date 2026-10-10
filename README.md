@@ -45,6 +45,25 @@ The **שירים / Songs** tab is a library of chord progressions (no lyrics) th
 - **Playing a song:** while a song is open, strums from any input play the current song chord's voicing. The capo and tuning settings apply, the same as in chord mode. Song chords are the *shapes* you play. If a song has a `capo` value, the player suggests applying it.
 - **Import:** paste a chord sheet, either ChordPro (`[Am]` inline chords and `{title}` / `{soc}` / `{comment: Verse}` directives) or plain text with chords above the lyrics (`[Chorus]`, `Verse 2:`, `פזמון`, `Intro: Am G C`, `| Am G |` bars, `x2` repeats). The parser keeps the chords and section names. **Lyrics are discarded and never stored.** You name the song and save it; it is stored in `localStorage`.
 
+### Auto-strum: "השמע דוגמה" and "נגן איתי"
+
+The playback box in the song player plays the song's chord sequence through the audio engine, starting from the current chord.
+
+- **השמע דוגמה** (play demo) plays the song at full volume.
+- **נגן איתי** (play along) plays it as a quiet guide (30% volume) while your own strums sound on top at full level.
+- One button switches between the two modes without stopping, and the same button stops playback.
+- **Patterns:**
+  - `D-DU-UDU`, `D-D-D-D`, `D-DU-D-DU`: on eighth notes. Down strokes go low → high across every sounding string; up strokes hit the top 3–4 strings, lighter.
+  - **ארפג׳ו** (arpeggio): one string per eighth, starting on the bass.
+  - Every stroke gets human variation: velocity spread, a harder bar downbeat, a stroke speed that follows velocity, and a few ms of timing jitter.
+- **Changing things while it plays:**
+  - pattern, instrument (picker in the same box), BPM and transpose
+  - the section loop
+  - jumping with prev / next / section chips: playback continues from the new chord
+- **Display sync:** the chord and the beat dots move exactly when each chord sounds. While auto-strum runs it controls the song position, so your strums don't advance the song; they play the chord being shown.
+- **Live latency is untouched.** Auto-strum uses its own set of 6 voices, with its own volume and the same instrument effects, and schedules notes up to 120 ms ahead on the audio clock. Your strums keep their own voices and their exact code path.
+  - Measured in headless Chrome: 0.3 ms median from key press to audio start, the same with and without play-along running.
+
 ### Song files
 
 Seed songs are `songs/*.json`, one file per song, and the file name is the song id. They are bundled at build time:
@@ -282,7 +301,7 @@ firmware/  ESP32-S3 BLE-MIDI firmware (Arduino) – see firmware/README.md and f
 src/
   input/   types, strumDetector (+tests), serial, bleMidi, webMidi, keyboard, midiMapping (+tests)
   music/   theory: notes, tunings, chords, voicings, keys (+tests)
-  song/    chord symbols, chord-sheet parser, advance logic, library, session/metronome, Chordonomicon index client (+tests)
+  song/    chord symbols, chord-sheet parser, advance logic, library, session/metronome, auto-strum patterns + scheduler, Chordonomicon index client (+tests)
 tools/chord_index/  name resolver + static index builder for the Chordonomicon dataset (Python, stdlib)
 tools/hebrew_library/  builder for the built-in Hebrew library (source JSON → public/he/)
   audio/   engine (voices, instruments, reverb), karplus (+tests), midiOut

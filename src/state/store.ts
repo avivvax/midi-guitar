@@ -5,6 +5,7 @@ import { DEFAULT_DETECTOR_PARAMS, type DetectorParams } from '../input/strumDete
 import type { TransportId } from '../input/types';
 import { TUNINGS, defaultPalette, findVoicing, type Chord, type Key, type Voicing } from '../music/theory';
 import { initialState as initialPlayer, type AdvanceMode, type PlayerState } from '../song/player';
+import type { PatternId } from '../song/strumPattern';
 import type { Song } from '../song/types';
 
 export type PlayMode = 'chord' | 'free';
@@ -43,6 +44,7 @@ export interface Settings {
   songPrefs: Record<string, SongPrefs>;
   advanceMode: AdvanceMode;
   clickOn: boolean;
+  strumPattern: PatternId;
 }
 
 export interface Runtime {
@@ -57,6 +59,8 @@ export interface Runtime {
   player: PlayerState;
   /** Tempo mode metronome running. */
   playing: boolean;
+  /** Auto-strum: 'demo' plays the song; 'along' plays it quietly as a guide under the user's strums. */
+  autoPlay: null | 'demo' | 'along';
 }
 
 export interface Actions {
@@ -98,6 +102,7 @@ export const useStore = create<State>()(
       songPrefs: {},
       advanceMode: 'strum',
       clickOn: true,
+      strumPattern: 'folk',
 
       screen: 'connect',
       transport: null,
@@ -109,6 +114,7 @@ export const useStore = create<State>()(
       songId: null,
       player: initialPlayer(),
       playing: false,
+      autoPlay: null,
 
       set: (p) => set(p),
       setDetector: (p) => set((s) => ({ detector: { ...s.detector, ...p } })),
@@ -140,7 +146,7 @@ export const useStore = create<State>()(
           };
         }),
       setSongPrefs: (id, p) => set((s) => ({ songPrefs: { ...s.songPrefs, [id]: { ...s.songPrefs[id], ...p } } })),
-      openSong: (id) => set({ songId: id, songView: 'player', player: initialPlayer(), playing: false }),
+      openSong: (id) => set({ songId: id, songView: 'player', player: initialPlayer(), playing: false, autoPlay: null }),
       setPlayer: (player) => set({ player }),
     }),
     {
@@ -165,6 +171,7 @@ export const useStore = create<State>()(
         songPrefs: s.songPrefs,
         advanceMode: s.advanceMode,
         clickOn: s.clickOn,
+        strumPattern: s.strumPattern,
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<Settings>;

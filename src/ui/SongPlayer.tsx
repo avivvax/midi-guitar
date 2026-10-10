@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
-import { ensureAudio, setSongPlaying } from '../controller';
+import { INSTRUMENTS, type InstrumentId } from '../audio/engine';
+import { ensureAudio, setAutoMode, setSongPlaying, startAutoPlay, stopAutoPlay } from '../controller';
+import { PATTERNS } from '../song/strumPattern';
 import { symbolToChord, transposeKey } from '../song/chordSymbol';
 import { next, prev, restart, jumpToSection, type AdvanceMode } from '../song/player';
 import { advanceModeFor, displaySymbol, findSong, songSettings, stepsOf } from '../song/session';
@@ -18,7 +20,13 @@ export default function SongPlayer() {
   const song = findSong(s, s.songId);
 
   // Stop the metronome when leaving the player.
-  useEffect(() => () => void setSongPlaying(false), []);
+  useEffect(
+    () => () => {
+      void setSongPlaying(false);
+      stopAutoPlay();
+    },
+    [],
+  );
 
   if (!song) {
     return (
@@ -53,9 +61,11 @@ export default function SongPlayer() {
   const advance = () => go(() => next(steps, p));
 
   // Beat / strum indicator.
-  const dots =
-    mode === 'tempo' ? cur.beats : mode === 'strum' ? cfg.strumsPerChord : 0;
-  const filled = mode === 'tempo' ? (s.playing ? p.beat + 1 : 0) : mode === 'strum' ? p.strums : 0;
+  const auto = s.autoPlay;
+  const dots = auto || mode === 'tempo' ? cur.beats : mode === 'strum' ? cfg.strumsPerChord : 0;
+  const filled = auto ? p.beat + 1 : mode === 'tempo' ? (s.playing ? p.beat + 1 : 0) : mode === 'strum' ? p.strums : 0;
+  const demoClick = () => (auto === 'demo' ? stopAutoPlay() : auto ? setAutoMode('demo') : void startAutoPlay('demo'));
+  const alongClick = () => (auto === 'along' ? stopAutoPlay() : auto ? setAutoMode('along') : void startAutoPlay('along'));
 
   return (
     <div className={styles.player}>
@@ -130,6 +140,40 @@ export default function SongPlayer() {
             <span>אקורד אחרון</span>
           )}
         </div>
+      </div>
+
+      <div className={styles.autoBox} aria-label="השמעה">
+        <div className={styles.autoRow}>
+          <button className={`${styles.autoBtn} ${auto === 'demo' ? styles.autoOn : ''}`} onClick={demoClick} aria-pressed={auto === 'demo'}>
+            {auto === 'demo' ? '⏹ עצור' : '▶ השמע דוגמה'}
+          </button>
+          <button className={`${styles.autoBtn} ${auto === 'along' ? styles.autoOn : ''}`} onClick={alongClick} aria-pressed={auto === 'along'}>
+            {auto === 'along' ? '⏹ עצור' : '🎸 נגן איתי'}
+          </button>
+        </div>
+        <div className={`${styles.patterns} ltr`} role="group" aria-label="דפוס פריטה">
+          {PATTERNS.map((pt) => (
+            <button key={pt.id} className={s.strumPattern === pt.id ? styles.chipOn : ''} onClick={() => s.set({ strumPattern: pt.id })}>
+              {pt.label}
+            </button>
+          ))}
+        </div>
+        <div className={styles.ctlRow}>
+          <Stepper label="BPM" value={cfg.tempo} onChange={(v) => setPrefs({ tempo: Math.max(40, Math.min(220, v)) })} step={2} />
+          <select
+            aria-label="כלי"
+            className={`${styles.instSelect} ltr`}
+            value={s.instrument}
+            onChange={(e) => s.set({ instrument: e.target.value as InstrumentId })}
+          >
+            {INSTRUMENTS.map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {auto === 'along' && <p className={styles.note}>הליווי מתנגן בשקט – הפריטות שלך מתנגנות מעליו.</p>}
       </div>
 
       <div className={styles.seg} role="group" aria-label="מצב התקדמות">

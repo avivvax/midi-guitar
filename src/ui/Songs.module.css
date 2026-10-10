@@ -79,3 +79,10 @@
 .chipOn small { color: #333; }
 .moreBtn { min-height: 52px; font-weight: 700; }
 .jump { white-space: nowrap; min-height: 40px; border-radius: 20px; padding: 0 14px; }
+.autoBox { display: flex; flex-direction: column; gap: 8px; background: var(--panel); border-radius: var(--radius); padding: 8px; }
+.autoRow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.autoBtn { min-height: 56px; font-size: 1.1rem; font-weight: 700; }
+.autoOn { background: var(--ok) !important; color: #111; border-color: var(--ok) !important; }
+.patterns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.patterns button { min-height: 44px; padding: 0 4px; font-size: 0.85rem; }
+.instSelect { flex: 1 1 140px; }

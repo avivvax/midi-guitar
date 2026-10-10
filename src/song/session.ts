@@ -62,7 +62,8 @@ export function songChordForHit(t: number): Chord | null {
   if (!song) return null;
   const steps = stepsOf(song);
   const cfg = songSettings(s, song);
-  if (advanceModeFor(s, song) === 'strum') {
+  // While auto-strum plays, it owns the song position; the player's strums only sound the current chord.
+  if (!s.autoPlay && advanceModeFor(s, song) === 'strum') {
     const next = onStringHit(steps, s.player, t, cfg.strumsPerChord);
     if (next !== s.player) s.setPlayer(next);
   }

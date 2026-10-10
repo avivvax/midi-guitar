@@ -8,7 +8,9 @@ import type { GuitarEvent, GuitarInput, TransportId } from './input/types';
 import { WebMidiInput } from './input/webMidi';
 import { chordName, noteNameOct } from './music/theory';
 import { symbolToChord } from './song/chordSymbol';
-import { Metronome, displaySymbol, songActive, songChordForHit, songSettings, stepsOf } from './song/session';
+import { scheduleWindow, startCursor, type AutoCursor, type StateChange } from './song/autoStrum';
+import { Metronome, displaySymbol, findSong, songActive, songChordForHit, songSettings, stepsOf } from './song/session';
+import { patternById } from './song/strumPattern';
 import { currentChord, tuningNotes, useStore, voicingFor } from './state/store';
 
 /**
@@ -258,9 +260,124 @@ export async function setSongPlaying(on: boolean): Promise<void> {
   }
   await ensureAudio();
   if (!engine) return;
+  stopAutoPlay();
   metronome ??= new Metronome(engine);
   set({ playing: true });
   metronome.start();
+}
+
+// ---------------------------------------------------------------------------
+// Auto-strum ("השמע דוגמה" / "נגן איתי")
+// ---------------------------------------------------------------------------
+const AUTO_LEVEL = { demo: 1, along: 0.3 } as const;
+const LOOKAHEAD = 0.12; // s of audio scheduled ahead
+const PUMP_MS = 25;
+
+class AutoPlayer {
+  private timer = 0;
+  private cursor: AutoCursor | null = null;
+  private pending: StateChange[] = [];
+  /** Player position the display was last set to by us (to detect user jumps). */
+  private shownPos = -1;
+
+  constructor(private engine: AudioEngine) {}
+
+  start(): void {
+    const s = useStore.getState();
+    this.engine.stopAuto();
+    this.cursor = startCursor(s.player, this.engine.ctx.currentTime + 0.06);
+    this.pending = [];
+    this.shownPos = s.player.pos;
+    clearInterval(this.timer);
+    this.timer = window.setInterval(() => this.pump(), PUMP_MS);
+    this.pump();
+  }
+
+  stop(): void {
+    clearInterval(this.timer);
+    this.timer = 0;
+    this.cursor = null;
+    this.pending = [];
+    this.engine.stopAuto();
+  }
+
+  private pump(): void {
+    const s = useStore.getState();
+    const song = findSong(s, s.songId);
+    if (!song || !s.autoPlay || !this.cursor || s.screen !== 'songs' || s.songView !== 'player') {
+      stopAutoPlay();
+      return;
+    }
+    const now = this.engine.ctx.currentTime;
+
+    // The user jumped (prev / next / section chip / restart): continue from there on the next eighth.
+    if (s.player.pos !== this.shownPos) {
+      this.engine.stopAuto();
+      this.pending = [];
+      this.cursor = startCursor(s.player, Math.max(now + 0.03, this.cursor.time));
+      this.shownPos = s.player.pos;
+    }
+    // Loop-section toggles apply immediately.
+    if (this.cursor.state.loopSection !== s.player.loopSection) {
+      this.cursor = { ...this.cursor, state: { ...this.cursor.state, loopSection: s.player.loopSection } };
+    }
+
+    const cfg = songSettings(s, song);
+    const tuning = tuningNotes(s);
+    const steps = stepsOf(song);
+    const midisFor = (pos: number) => {
+      const st = steps[pos];
+      const chord = st ? symbolToChord(displaySymbol(st.chord, cfg.transpose)) : null;
+      if (!chord) return [null, null, null, null, null, null];
+      return voicingFor(chord, tuning).map((f, i) => (f === null ? null : tuning[i] + s.capo + f));
+    };
+    const r = scheduleWindow(
+      this.cursor,
+      { steps, tempo: cfg.tempo, pattern: patternById(s.strumPattern), midisFor },
+      now + LOOKAHEAD,
+    );
+    this.cursor = r.cursor;
+    for (const n of r.notes) this.engine.pluck(n.string, n.midi, n.velocity, n.when, 'auto');
+    this.pending.push(...r.changes);
+
+    // Show each beat / chord change when it actually sounds.
+    while (this.pending.length && this.pending[0].time <= now) {
+      const c = this.pending.shift()!;
+      if (c.state.finished) {
+        useStore.getState().setPlayer({ ...useStore.getState().player, beat: 0 });
+        stopAutoPlay();
+        return;
+      }
+      this.shownPos = c.state.pos;
+      const cur = useStore.getState().player;
+      useStore.getState().setPlayer({ ...cur, pos: c.state.pos, beat: c.state.beat, strums: 0, finished: false });
+    }
+  }
+}
+
+let autoPlayer: AutoPlayer | null = null;
+
+/** Start auto-strum from the current chord ('demo' = full volume, 'along' = quiet guide). */
+export async function startAutoPlay(mode: 'demo' | 'along'): Promise<void> {
+  await ensureAudio();
+  if (!engine) return;
+  metronome?.stop();
+  useStore.getState().set({ playing: false, autoPlay: mode });
+  engine.setAutoLevel(AUTO_LEVEL[mode]);
+  autoPlayer ??= new AutoPlayer(engine);
+  autoPlayer.start();
+}
+
+/** Switch between demo and play-along without interrupting playback. */
+export function setAutoMode(mode: 'demo' | 'along'): void {
+  if (!engine || !useStore.getState().autoPlay) return;
+  useStore.getState().set({ autoPlay: mode });
+  engine.setAutoLevel(AUTO_LEVEL[mode]);
+}
+
+export function stopAutoPlay(): void {
+  autoPlayer?.stop();
+  if (useStore.getState().autoPlay) useStore.getState().set({ autoPlay: null });
 }
 
 export function getSerialDetector() {

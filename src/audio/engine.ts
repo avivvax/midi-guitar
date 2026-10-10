@@ -26,6 +26,9 @@ interface Voice {
   current: { stop: (when: number) => void } | null;
 }
 
+/** 'live' = the player's own strums; 'auto' = scheduled auto-strum (demo / guide). */
+export type VoicePool = 'live' | 'auto';
+
 const VEL_BUCKETS = 4;
 const CACHE_MAX = 96;
 
@@ -42,6 +45,11 @@ export class AudioEngine {
   private chainNodes: AudioNode[] = [];
   private chainSources: OscillatorNode[] = [];
   private voices: Voice[];
+  /** Separate voices for auto-strum, so it never cuts off or delays the player's own strings. */
+  private autoVoices: Voice[];
+  private autoOut: GainNode;
+  /** Every scheduled auto note that may still sound, so stopAuto() can silence them all. */
+  private autoNotes = new Set<{ stop: (when: number) => void }>();
   private cache = new Map<string, AudioBuffer>();
   private noise: AudioBuffer;
   instrument: InstrumentId = 'acoustic';
@@ -70,14 +78,20 @@ export class AudioEngine {
     this.busOut.connect(this.master);
     this.busOut.connect(this.reverbSend);
 
-    this.voices = Array.from({ length: 6 }, () => {
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.Q.value = 0.7;
-      const out = ctx.createGain();
-      filter.connect(out).connect(this.busIn);
-      return { filter, out, current: null };
-    });
+    const makeVoices = (dest: AudioNode): Voice[] =>
+      Array.from({ length: 6 }, () => {
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.Q.value = 0.7;
+        const out = ctx.createGain();
+        filter.connect(out).connect(dest);
+        return { filter, out, current: null };
+      });
+    this.voices = makeVoices(this.busIn);
+    // Auto voices go through the same instrument bus (so instrument changes apply live) at their own level.
+    this.autoOut = ctx.createGain();
+    this.autoOut.connect(this.busIn);
+    this.autoVoices = makeVoices(this.autoOut);
 
     this.noise = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.08), ctx.sampleRate);
     const d = this.noise.getChannelData(0);
@@ -107,7 +121,10 @@ export class AudioEngine {
   setInstrument(id: InstrumentId): void {
     if (id === this.instrument) return;
     this.instrument = id;
-    for (let i = 0; i < 6; i++) this.noteOff(i);
+    for (let i = 0; i < 6; i++) {
+      this.noteOff(i);
+      this.noteOff(i, this.ctx.currentTime, 'auto');
+    }
     this.buildChain();
   }
 
@@ -226,24 +243,46 @@ export class AudioEngine {
     setTimeout(step, 0);
   }
 
-  noteOff(string: number, when = this.ctx.currentTime): void {
-    const v = this.voices[string];
+  /** Level of the auto-strum voices (1 = demo, low = guide under the player's own strums). */
+  setAutoLevel(level: number, when = this.ctx.currentTime): void {
+    this.autoOut.gain.setTargetAtTime(level, when, 0.03);
+  }
+
+  /** Silence every auto-strum voice now (stop / instrument change). */
+  stopAuto(): void {
+    const now = this.ctx.currentTime;
+    for (const n of this.autoNotes) n.stop(now);
+    this.autoNotes.clear();
+    for (const v of this.autoVoices) v.current = null;
+  }
+
+  noteOff(string: number, when = this.ctx.currentTime, pool: VoicePool = 'live'): void {
+    const v = (pool === 'auto' ? this.autoVoices : this.voices)[string];
     v.current?.stop(when);
     v.current = null;
   }
 
-  /** Play a note on a string. Returns the AudioContext time it starts at. */
-  pluck(string: number, midi: number, velocity: number): number {
+  /**
+   * Play a note on a string. Live strums use the defaults (start now on the
+   * live voices); auto-strum passes a future AudioContext time and pool 'auto'.
+   * Returns the AudioContext time the note starts at.
+   */
+  pluck(string: number, midi: number, velocity: number, when?: number, pool: VoicePool = 'live'): number {
     const ctx = this.ctx;
-    const v = this.voices[string];
-    const now = ctx.currentTime;
-    this.noteOff(string, now);
+    const v = (pool === 'auto' ? this.autoVoices : this.voices)[string];
+    const now = Math.max(when ?? ctx.currentTime, ctx.currentTime);
+    this.noteOff(string, now, pool);
     const vel = Math.max(0.02, Math.min(1, velocity));
     const gain = Math.pow(vel, 1.5);
 
     if (this.instrument === 'synth') {
       v.filter.frequency.setValueAtTime(20000, now);
       v.current = this.synthNote(v, midi, vel, gain, now);
+      if (pool === 'auto' && v.current) {
+        const h = v.current;
+        this.autoNotes.add(h);
+        setTimeout(() => this.autoNotes.delete(h), (now - ctx.currentTime + 5) * 1000);
+      }
       return now;
     }
     const id = this.instrument;
@@ -258,14 +297,20 @@ export class AudioEngine {
     env.gain.value = gain;
     src.connect(env).connect(v.filter);
     src.start(now);
-    src.onended = () => env.disconnect();
-    v.current = {
-      stop: (when) => {
-        env.gain.setValueAtTime(env.gain.value, when);
+    const handle = {
+      stop: (when: number) => {
+        env.gain.cancelScheduledValues(when);
+        env.gain.setValueAtTime(gain, when);
         env.gain.linearRampToValueAtTime(0, when + 0.012);
-        src.stop(when + 0.015);
+        src.stop(Math.max(when + 0.015, 0));
       },
     };
+    src.onended = () => {
+      env.disconnect();
+      this.autoNotes.delete(handle);
+    };
+    if (pool === 'auto') this.autoNotes.add(handle);
+    v.current = handle;
     return now;
   }
 
