@@ -27,7 +27,7 @@ To test on a phone from the dev server, use `npm run dev -- --host` and open it 
 | **חיבור / Connect** | Pick a transport. Shows the connection status and a live 6-bar signal meter. |
 | **נגינה / Play** | 8-slot chord palette (thumb zone), current chord with its diagram, capo −/+, chord/free mode, instrument, and 6 animated strings. Tap a string to pluck it, or drag across the strings to strum. |
 | **שירים / Songs** | Song library, player (tempo / strum-count / manual advance) and chord-sheet import. See "Song mode" below. |
-| **הגדרות / Settings** | Tuning (presets plus a custom per-string editor), key, chord editor (filter to chords in the key), volume, reverb, MIDI out. |
+| **הגדרות / Settings** | Tuning (presets plus a custom per-string editor), key, chord editor (filter to chords in the key), volume, reverb, MIDI out, and **כיול מיתרים** (string calibration, below). |
 | **דיבאג / Debug** | Scope of the per-string signals with the threshold line, live-tunable detector parameters, strum→sound latency, and an event log. |
 
 Settings are saved in `localStorage`.
@@ -122,16 +122,16 @@ Use this when the OS already pairs the guitar as a MIDI device (for example, And
 | Item | Value |
 | --- | --- |
 | Service UUID | `03B80E5A-EDE8-4B33-A751-6CE34EC4C700` |
-| Characteristic UUID | `7772E5DB-3868-4112-A1A9-F2669D106BF3` (notify) |
+| Characteristic UUID | `7772E5DB-3868-4112-A1A9-F2669D106BF3` (notify; the app also writes to it, without response, for calibration) |
 | Advertised name | anything. The picker filters by service, not by name. |
 
 | Message | Meaning |
 | --- | --- |
 | MIDI channel 1–6 | string 0–5 (channel 1 = low E, channel 6 = high e) |
 | **Note On**, velocity 1–127 | **strum** on that string, velocity = v/127. The note number is ignored because the app decides the pitch. The firmware in `firmware/` sends note 60. |
-| Note On velocity 0 / Note Off | ignored (the strings ring out naturally). The firmware sends Note Off 50 ms after each Note On. |
+| Note On velocity 0 / Note Off | **ignored**: a plucked string sustains until it decays naturally or is plucked again. The firmware still sends Note Off 50 ms after each Note On; that is harmless. |
 | **CC 20**, value 0–12 | **fret** pressed on that string (0 = open / nothing touched) |
-| **CC 20**, value 127 | string **damped/muted** (`fret: null`). A strum then plays a percussive click. |
+| **CC 20**, value 127 | string **damped/muted** (`fret: null`). Stops the ringing string at once (and sends Note Off on MIDI Out); a strum while muted plays a percussive click. This is the only way to cut a note short. |
 
 Recommendations:
 - Send CC 20 when the fret changes, **before** the Note On of a strum that uses it.
@@ -143,6 +143,31 @@ Example packet: strum string 3 (channel 3) with velocity 100, after reporting fr
 80 80 B2 14 05   80 92 32 64
 hdr ts CC20=5    ts NoteOn ch3 note 50 vel 100
 ```
+
+### Calibration protocol (MIDI channel 16)
+
+Settings → **כיול מיתרים** tunes the guitar's own strum detector over BLE. It works only on a Bluetooth MIDI connection; over USB Serial the detector runs in the app and its parameters are on the Debug screen, as before. Both directions use Control Change on channel 16 (status `0xBF`), so they never collide with the string channels 1–6. The mappings are mirrored in `src/input/configProtocol.ts` and `firmware/midi_guitar/ConfigProtocol.h`.
+
+| CC | Value | Meaning |
+| --- | --- | --- |
+| 20–25 | 0–127 | trigger threshold for strings 1–6, quadratic: `10 + (v/127)² · 2000` ADC counts above the baseline |
+| 26 | 0–127 | release ratio `0.05 + v/127 · 0.95`: the signal must fall below `threshold × ratio` before the string can trigger again (1.0 = old behaviour) |
+| 27 | 0–127 | neighbour-rejection ratio `v / 63.5` (64 ≈ 1.0, 0 = off) |
+| 28 | 0–127 | gain `2^((v − 64) / 32)` (0.25–4, 64 = ×1) for the string chosen by CC 29 |
+| 29 | 1–6 | selects the string for CC 28 (send it in the same packet, just before CC 28) |
+| 30 | 127 | save the current settings to flash (NVS) |
+| 31 | 127 | factory defaults (not saved until CC 30) |
+| 32 | 127 / 0 | calibration monitor on / off (extension, see below) |
+
+Changes apply live. Settings are only persisted on CC 30.
+
+**Extension (firmware → app).** To draw the live peak meters, the app sends CC 32 = 127 when the calibration screen opens and 0 when it closes. While the monitor is on, the firmware:
+- replies at once with a **settings dump**: CC 20–27, then a CC 29/CC 28 pair per string, in the same encoding;
+- every 50 ms sends **CC 40–45**: the peak signal of strings 1–6 since the last report, on the same quadratic scale as the threshold, so the meter and the threshold marker line up.
+
+The firmware also sends a dump after a reset (CC 31). If no dump arrives within 2.5 s, the screen says the firmware needs updating.
+
+**Velocity floor (app only).** Strums whose velocity is below the "סף עוצמה מינימלי" slider (default 0.08, saved in the app) are dropped and logged as `reject` on the Debug screen. This applies to every transport.
 
 ## Music engine
 
@@ -299,13 +324,13 @@ npm run deploy:firebase           # = vite build --base / && firebase deploy --o
 ```
 firmware/  ESP32-S3 BLE-MIDI firmware (Arduino) – see firmware/README.md and firmware/SETUP.md (Hebrew)
 src/
-  input/   types, strumDetector (+tests), serial, bleMidi, webMidi, keyboard, midiMapping (+tests)
+  input/   types, strumDetector (+tests), serial, bleMidi, webMidi, keyboard, midiMapping (+tests), configProtocol (+tests)
   music/   theory: notes, tunings, chords, voicings, keys (+tests)
   song/    chord symbols, chord-sheet parser, advance logic, library, session/metronome, auto-strum patterns + scheduler, Chordonomicon index client (+tests)
 tools/chord_index/  name resolver + static index builder for the Chordonomicon dataset (Python, stdlib)
 tools/hebrew_library/  builder for the built-in Hebrew library (source JSON → public/he/)
   audio/   engine (voices, instruments, reverb), karplus (+tests), midiOut
   state/   zustand store (persisted settings)
-  ui/      Connect, Play, Settings, Debug, SignalMeter, StringsView, ChordDiagram
+  ui/      Connect, Play, Settings (+ Calibration), Debug, SignalMeter, StringsView, ChordDiagram
   controller.ts   glue: transports → music → audio, live meters, log, latency
 ```

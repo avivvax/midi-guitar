@@ -17,9 +17,11 @@ struct DetectorParams {
   float refRatio;               // reject if reference peak * ratio > own peak (0 = off)
   float baselineAlpha;          // baseline tracking speed per sample (slow EMA)
   uint16_t rawEvery;            // print raw values every N samples (0 = off)
+  float releaseRatio;           // re-arm once the signal falls below threshold × ratio (0.05..1)
+  float gain[NUM_STRINGS];      // per-string input gain applied before the threshold (0.25..4)
 };
 
-static const uint32_t PARAMS_MAGIC = 0x4D474431; // "MGD1"
+static const uint32_t PARAMS_MAGIC = 0x4D474432; // "MGD2" (layout changed: release + gain)
 
 inline DetectorParams defaultParams() {
   DetectorParams p;
@@ -33,6 +35,8 @@ inline DetectorParams defaultParams() {
   p.refRatio = 1.0f;
   p.baselineAlpha = 0.002f;
   p.rawEvery = 1;
+  p.releaseRatio = 1.0f;
+  for (int i = 0; i < NUM_STRINGS; i++) p.gain[i] = 1.0f;
   return p;
 }
 
@@ -59,6 +63,8 @@ class StrumDetector {
     for (int i = 0; i < NUM_STRINGS; i++) {
       baseline_[i] = -1;
       prev_[i] = 0;
+      sig_[i] = 0;
+      armed_[i] = true;
       lastHit_[i] = -1000000;
       windowLeft_[i] = 0;
       peak_[i] = 0;
@@ -82,9 +88,10 @@ class StrumDetector {
     for (int i = 0; i < NUM_STRINGS; i++) {
       float v = values[i];
       if (baseline_[i] < 0) baseline_[i] = v;
-      float s = v - baseline_[i];
+      float s = (v - baseline_[i]) * p.gain[i];
       if (s < 0) s = 0;
       sig[i] = s;
+      sig_[i] = s;
     }
     float refSig = 0;
     if (ref >= 0) {
@@ -105,8 +112,12 @@ class StrumDetector {
       } else {
         // Idle: baseline follows slow drift only while quiet.
         if (sig[i] < th) baseline_[i] += p.baselineAlpha * ((float)values[i] - baseline_[i]);
-        bool rising = prev_[i] < th && sig[i] >= th;
+        // Re-arm only after the signal has decayed below threshold × releaseRatio
+        // (1.0 = as soon as it drops under the threshold).
+        if (!armed_[i] && sig[i] < th * p.releaseRatio) armed_[i] = true;
+        bool rising = armed_[i] && sig[i] >= th;
         if (rising && now_ - lastHit_[i] >= msToSamples(p.refractoryMs)) {
+          armed_[i] = false;
           lastHit_[i] = now_;
           peak_[i] = sig[i];
           otherPeak_[i] = 0;
@@ -121,6 +132,8 @@ class StrumDetector {
   }
 
   float baseline(int i) const { return baseline_[i]; }
+  /** Signal of the last frame (above baseline, after gain) – for level meters. */
+  float signal(int i) const { return sig_[i]; }
 
  private:
   void trackOthers(const DetectorParams& p, int i, const float* sig, float refSig, bool hasRef) {
@@ -164,6 +177,8 @@ class StrumDetector {
   int32_t now_;
   float baseline_[NUM_STRINGS];
   float prev_[NUM_STRINGS];
+  float sig_[NUM_STRINGS];
+  bool armed_[NUM_STRINGS];
   int32_t lastHit_[NUM_STRINGS];
   int32_t windowLeft_[NUM_STRINGS];
   float peak_[NUM_STRINGS];

@@ -1,0 +1,16 @@
+.wrap { display: flex; flex-direction: column; gap: 8px; }
+.head { display: flex; align-items: center; gap: 10px; }
+.head h2 { margin: 0; }
+.head button { width: 44px; padding: 0; }
+.note { color: var(--muted); font-size: 0.85rem; margin: 0; }
+.info { background: var(--panel); border-radius: var(--radius); padding: 12px; margin: 0; }
+.strings { display: flex; flex-direction: column; gap: 8px; }
+.string { display: flex; flex-direction: column; gap: 4px; background: var(--panel); border-radius: var(--radius); padding: 8px 10px; }
+.meter { position: relative; height: 14px; background: var(--panel2); border-radius: 6px; overflow: hidden; }
+.peak { position: absolute; inset: 0; transform-origin: left; transform: scaleX(0); background: linear-gradient(to right, var(--ok), var(--accent) 70%, var(--err)); will-change: transform; }
+.mark { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--text); }
+.slider { display: grid; grid-template-columns: 110px 1fr 52px; align-items: center; gap: 10px; }
+.slider output { text-align: end; font-variant-numeric: tabular-nums; color: var(--muted); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.actions > * { flex: 1; }
+.primary { background: var(--accent) !important; color: #111; border-color: var(--accent) !important; font-weight: 700; }

@@ -11,6 +11,7 @@ import {
   type ChordType,
 } from '../music/theory';
 import { tuningNotes, useStore, voicingFor } from '../state/store';
+import Calibration from './Calibration';
 import ChordDiagram from './ChordDiagram';
 import styles from './Settings.module.css';
 
@@ -21,6 +22,7 @@ export default function Settings() {
   const [diatonicOnly, setDiatonicOnly] = useState(true);
   const [midiOuts, setMidiOuts] = useState<string[] | null>(null);
   const [midiErr, setMidiErr] = useState('');
+  const [calibrating, setCalibrating] = useState(false);
   const editing = s.palette[slot];
 
   useEffect(() => {
@@ -43,8 +45,12 @@ export default function Settings() {
     s.set({ tuningId: 'custom', customTuning: next });
   };
 
+  if (calibrating) return <Calibration onBack={() => setCalibrating(false)} />;
+
   return (
     <div className={styles.wrap}>
+      <button onClick={() => setCalibrating(true)}>כיול מיתרים ›</button>
+
       <h2>כיוון</h2>
       <select className="ltr" value={s.tuningId} onChange={(e) => s.set({ tuningId: e.target.value })}>
         {TUNINGS.map((t) => (

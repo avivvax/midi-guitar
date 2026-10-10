@@ -41,7 +41,10 @@ All pins must be ADC1 pins (GPIO 1–10 on the S3), because ADC2 is unavailable 
   - the hit is rejected if a neighbour (× `nb`) or the reference (× `ref`) peaked higher
   - otherwise velocity = `1 + 126 · ((peak − th) / (fs − th))^curve`
   - 60 ms refractory window
-- **MIDI:** Note On on channel = string number (1 = low E), note 60, then Note Off 50 ms later. Strums detected in the same sample go out in one BLE notification.
+  - the signal is the piezo minus its baseline, times the string's `gain` (default 1)
+  - after a hit the string re-arms only once the signal falls below `th × rel` (default `rel` 1.0, i.e. no extra hysteresis); a lower `rel` stops one loud pluck from re-triggering
+- **MIDI:** Note On on channel = string number (1 = low E), note 60, then Note Off 50 ms later. Strums detected in the same sample go out in one BLE notification. The web app **ignores Note Off**, so strings sustain there until they decay or are re-plucked; the Note Off is harmless and keeps other MIDI hosts from hanging notes. Only CC 20 = 127 (mute) cuts a note in the app.
+- **Calibration over BLE:** the app writes Control Changes on MIDI channel 16 to the BLE-MIDI characteristic: thresholds, release, neighbour ratio, per-string gain, save, reset, and a monitor switch that makes the firmware stream peak levels (CC 40–45 every 50 ms) and dump its settings. The full table is in the main `README.md` ("Calibration protocol"); the code is `ConfigProtocol.h`, and the BLE-MIDI parser is `BleMidiParse.h`. Writes are queued from the BLE task into `loop()`, and changes apply live. They are saved to NVS only on CC 30 = 127 ("שמור לגיטרה" in the app). Notifications are capped at the negotiated MTU − 3 bytes.
 - **BLE:**
   - advertises the BLE-MIDI service `03B80E5A-EDE8-4B33-A751-6CE34EC4C700`, with the name in the scan response
   - on connect, requests a 7.5 ms connection interval (min = max = 6 × 1.25 ms, latency 0). `stats` shows what the phone granted.
@@ -65,10 +68,14 @@ All pins must be ADC1 pins (GPIO 1–10 on the S3), because ADC2 is unavailable 
 | `nb <x>` | neighbour rejection ratio (default 1.0; 0 = off; lower = more permissive) |
 | `ref <x>` | reference rejection ratio (default 1.0; 0 = off) |
 | `alpha <x>` | baseline tracking speed (default 0.002) |
+| `rel <x>` | release (re-arm) ratio 0.05–1 (default 1.0; lower = fewer double triggers) |
+| `gain <1-6\|all> <x>` | per-string signal gain 0.25–4 (default 1) |
 | `raw <n>` | raw stream every n samples (default 1; 0 = off, which prints `# hit` / `# reject` lines instead) |
 | `test <1-6\|all>` | send a test strum over BLE |
 | `stats` | achieved sample rate, worst-case processing time, dropped lines, BLE interval |
 | `base` | current baselines |
 | `reset` | factory defaults |
 
-Every change is saved to NVS straight away and survives power cycles.
+Every serial change is saved to NVS straight away and survives power cycles. Changes from the app are saved only when you press "שמור לגיטרה".
+
+**Settings reset after updating to this version.** The saved-settings layout gained `rel` and the per-string gains, so the NVS magic changed to `MGD2`. The first boot after flashing ignores the old saved settings and starts from the defaults. Re-tune once, from the app or the serial monitor.

@@ -1,6 +1,7 @@
 import { AudioEngine } from './audio/engine';
 import { MidiOut } from './audio/midiOut';
 import { BleMidiInput } from './input/bleMidi';
+import { CC, applyDeviceCC, emptyDeviceConfig } from './input/configProtocol';
 import { KeyboardInput } from './input/keyboard';
 import { SerialInput } from './input/serial';
 import type { DetectorResult } from './input/strumDetector';
@@ -35,6 +36,9 @@ export const live = {
   framesPerSec: 0,
   log: [] as { t: number; text: string; kind: 'strum' | 'fret' | 'reject' | 'info' }[],
   latency: [] as { proc: number; total: number }[],
+  /** Calibration peak meter per string, in threshold CC units (0–127), from the guitar over BLE. */
+  calibPeaks: new Float32Array(6),
+  calibPeakAt: 0,
 };
 
 let engine: AudioEngine | null = null;
@@ -137,7 +141,18 @@ export function handleEvent(e: GuitarEvent): void {
   const s = useStore.getState();
   if (e.type === 'fret') {
     live.frets[e.string] = e.fret;
+    if (e.fret === null) {
+      // Explicit mute (CC 20 = 127) is the only thing that stops a ringing string;
+      // Note Off is ignored so plucked strings sustain until they decay or are re-plucked.
+      engine?.noteOff(e.string);
+      midiOut.noteOff(e.string);
+      live.notes[e.string] = null;
+    }
     log('fret', `S${e.string + 1} fret ${e.fret ?? 'muted'}`);
+    return;
+  }
+  if (e.velocity < s.velocityFloor) {
+    log('reject', `S${e.string + 1} below velocity floor (${e.velocity.toFixed(2)} < ${s.velocityFloor.toFixed(2)})`);
     return;
   }
   // Strum. In the song player the song decides the chord (and may advance on this strum).
@@ -207,6 +222,18 @@ export async function connect(transport: TransportId): Promise<void> {
           log('info', 'BLE disconnected');
         }
       };
+      const sel = { gainString: 0 };
+      b.onConfig = (cc, value) => {
+        if (cc >= CC.peak && cc < CC.peak + 6) {
+          const i = cc - CC.peak;
+          live.calibPeaks[i] = Math.max(live.calibPeaks[i], value);
+          live.calibPeakAt = performance.now();
+          return;
+        }
+        const st = useStore.getState();
+        const next = applyDeviceCC(st.deviceConfig ?? emptyDeviceConfig(), sel, cc, value);
+        if (next) st.set({ deviceConfig: next });
+      };
       inp = b;
       break;
     }
@@ -245,7 +272,73 @@ export function disconnect(): void {
     input = null;
     log('info', 'Disconnected');
   }
-  useStore.getState().set({ status: 'idle', transport: null, deviceName: '' });
+  useStore.getState().set({ status: 'idle', transport: null, deviceName: '', deviceConfig: null });
+}
+
+// ---------------------------------------------------------------------------
+// Remote calibration over BLE (MIDI channel 16, see input/configProtocol.ts)
+// ---------------------------------------------------------------------------
+function bleInput(): BleMidiInput | null {
+  return input instanceof BleMidiInput && input.connected ? input : null;
+}
+
+/** Calibration needs a live BLE link; over Serial the app's own detector is tuned instead. */
+export function calibrationAvailable(): boolean {
+  return bleInput() !== null;
+}
+
+/** Ask the guitar to stream peak levels (and send its current settings). */
+export function setCalibrationMonitor(on: boolean): void {
+  live.calibPeaks.fill(0);
+  bleInput()?.setMonitor(on);
+}
+
+type DeviceSetting = { kind: 'threshold'; string: number } | { kind: 'gain'; string: number } | { kind: 'release' } | { kind: 'neighbour' };
+
+/** Change one guitar setting (CC value 0–127); applied live, not saved until saveCalibration(). */
+export function setDeviceSetting(which: DeviceSetting, value: number): void {
+  const b = bleInput();
+  if (!b) return;
+  const st = useStore.getState();
+  const cfg = st.deviceConfig ?? emptyDeviceConfig();
+  switch (which.kind) {
+    case 'threshold': {
+      const threshold = cfg.threshold.slice();
+      threshold[which.string] = value;
+      st.set({ deviceConfig: { ...cfg, threshold } });
+      b.sendConfig(`th${which.string}`, [[CC.threshold + which.string, value]]);
+      break;
+    }
+    case 'gain': {
+      const gain = cfg.gain.slice();
+      gain[which.string] = value;
+      st.set({ deviceConfig: { ...cfg, gain } });
+      b.sendConfig(`gain${which.string}`, [
+        [CC.gainSelect, which.string + 1],
+        [CC.gain, value],
+      ]);
+      break;
+    }
+    case 'release':
+      st.set({ deviceConfig: { ...cfg, release: value } });
+      b.sendConfig('release', [[CC.release, value]]);
+      break;
+    case 'neighbour':
+      st.set({ deviceConfig: { ...cfg, neighbour: value } });
+      b.sendConfig('neighbour', [[CC.neighbour, value]]);
+      break;
+  }
+}
+
+export function saveCalibration(): void {
+  bleInput()?.sendConfig('save', [[CC.save, 127]]);
+  log('info', 'Calibration saved to guitar');
+}
+
+/** Factory defaults on the guitar; it answers with a fresh settings dump. */
+export function resetCalibration(): void {
+  bleInput()?.sendConfig('reset', [[CC.reset, 127]]);
+  log('info', 'Calibration reset to defaults');
 }
 
 let metronome: Metronome | null = null;

@@ -15,10 +15,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Detector unit tests (host)
+      - name: Firmware unit tests (host)
         run: |
-          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/midi_guitar firmware/test/test_detector.cpp -o test_detector
-          ./test_detector
+          for t in firmware/test/test_*.cpp; do
+            name=$(basename "$t" .cpp)
+            g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/midi_guitar "$t" -o "$name"
+            ./"$name"
+          done
       - name: Compile for ESP32-S3
         uses: arduino/compile-sketches@v1
         with:

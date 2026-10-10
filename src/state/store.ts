@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { InstrumentId } from '../audio/engine';
 import { DEFAULT_DETECTOR_PARAMS, type DetectorParams } from '../input/strumDetector';
+import type { DeviceConfig } from '../input/configProtocol';
 import type { TransportId } from '../input/types';
 import { TUNINGS, defaultPalette, findVoicing, type Chord, type Key, type Voicing } from '../music/theory';
 import { initialState as initialPlayer, type AdvanceMode, type PlayerState } from '../song/player';
@@ -45,6 +46,8 @@ export interface Settings {
   advanceMode: AdvanceMode;
   clickOn: boolean;
   strumPattern: PatternId;
+  /** Strums quieter than this (0–1) are ignored – filters ghost hits from neighbouring strings. */
+  velocityFloor: number;
 }
 
 export interface Runtime {
@@ -61,6 +64,8 @@ export interface Runtime {
   playing: boolean;
   /** Auto-strum: 'demo' plays the song; 'along' plays it quietly as a guide under the user's strums. */
   autoPlay: null | 'demo' | 'along';
+  /** Calibration values reported by the guitar over BLE (null until its settings dump arrives). */
+  deviceConfig: DeviceConfig | null;
 }
 
 export interface Actions {
@@ -103,6 +108,7 @@ export const useStore = create<State>()(
       advanceMode: 'strum',
       clickOn: true,
       strumPattern: 'folk',
+      velocityFloor: 0.08,
 
       screen: 'connect',
       transport: null,
@@ -115,6 +121,7 @@ export const useStore = create<State>()(
       player: initialPlayer(),
       playing: false,
       autoPlay: null,
+      deviceConfig: null,
 
       set: (p) => set(p),
       setDetector: (p) => set((s) => ({ detector: { ...s.detector, ...p } })),
@@ -172,6 +179,7 @@ export const useStore = create<State>()(
         advanceMode: s.advanceMode,
         clickOn: s.clickOn,
         strumPattern: s.strumPattern,
+        velocityFloor: s.velocityFloor,
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<Settings>;

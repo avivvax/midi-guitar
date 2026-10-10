@@ -4,7 +4,10 @@
 //  * Standard BLE-MIDI device ("MIDI Guitar"), implemented directly on
 //    NimBLE-Arduino 2.x so we control the connection interval (7.5 ms).
 //  * Strum on string N (1 = low E) -> Note On, MIDI channel N, note 60,
-//    velocity 1..127; Note Off 50 ms later.
+//    velocity 1..127; Note Off 50 ms later. (The app ignores Note Off – strings
+//    ring until they decay or are re-plucked – but it keeps MIDI tools happy.)
+//  * Remote calibration from the app: Control Change on MIDI channel 16
+//    (see ConfigProtocol.h), applied live, saved to flash on request.
 //  * Serial: one line per sample (~2 ms) of raw ADC values, space separated,
 //    reference piezo last – used by the web app's USB Serial mode.
 //    Lines starting with '#' are command replies / info.
@@ -18,6 +21,8 @@
 #include <Preferences.h>
 #include "config.h"
 #include "StrumDetector.h"
+#include "ConfigProtocol.h"
+#include "BleMidiParse.h"
 
 #define MIDI_SERVICE_UUID "03B80E5A-EDE8-4B33-A751-6CE34EC4C700"
 #define MIDI_CHAR_UUID    "7772E5DB-3868-4112-A1A9-F2669D106BF3"
@@ -33,6 +38,15 @@ static NimBLECharacteristic* midiChar = nullptr;
 static volatile bool bleConnected = false;
 static volatile uint16_t bleConnHandle = 0xFFFF;
 static volatile float bleIntervalMs = 0;
+static volatile uint16_t bleMtu = 23;  // ATT MTU; notifications carry at most MTU − 3 bytes
+
+// Config CCs written by the app arrive on the BLE task; they are queued and applied in loop().
+static QueueHandle_t cfgQueue = nullptr;
+static CfgState cfgState;
+static bool monitorOn = false;
+static uint32_t monitorLastMs = 0;
+static float peakSince[NUM_STRINGS] = {0};
+static const uint32_t MONITOR_PERIOD_MS = 50;
 
 // Pending Note Offs, in micros() time; 0 = none.
 static uint32_t noteOffAt[NUM_STRINGS] = {0};
@@ -47,15 +61,20 @@ static uint32_t statMaxProcessUs = 0;
 // BLE-MIDI
 // ---------------------------------------------------------------------------
 // Packet being built during one sample period; sent once per period so a
-// chord strummed within the same 0.5 ms goes out in a single notification.
+// chord strummed within the same 0.5 ms goes out in a single notification
+// (split into several when it would exceed the link's MTU).
 static uint8_t pkt[64];
 static uint8_t pktLen = 0;
 
+static void midiFlush();
+
 static void midiQueue(uint8_t status, uint8_t d1, uint8_t d2) {
   if (!bleConnected) return;
+  const size_t maxLen = min((size_t)sizeof(pkt), (size_t)(bleMtu > 3 ? bleMtu - 3 : 20));
+  if (pktLen && pktLen + 4 > maxLen) midiFlush();
   const uint16_t ts = millis() & 0x1FFF;  // 13-bit millisecond timestamp
   if (pktLen == 0) pkt[pktLen++] = 0x80 | ((ts >> 7) & 0x3F);  // header
-  if (pktLen + 4 > sizeof(pkt)) return;
+  if (pktLen + 4 > maxLen) return;
   pkt[pktLen++] = 0x80 | (ts & 0x7F);  // timestamp
   pkt[pktLen++] = status;
   pkt[pktLen++] = d1 & 0x7F;
@@ -80,9 +99,24 @@ class ServerCallbacks : public NimBLEServerCallbacks {
     bleConnected = false;
     bleConnHandle = 0xFFFF;
     bleIntervalMs = 0;
+    bleMtu = 23;
+    monitorOn = false;
     NimBLEDevice::startAdvertising();
   }
   void onConnParamsUpdate(NimBLEConnInfo& info) override { bleIntervalMs = info.getConnInterval() * 1.25f; }
+  void onMTUChange(uint16_t mtu, NimBLEConnInfo&) override { bleMtu = mtu; }
+};
+
+// Writes from the app: BLE-MIDI packets. Only channel-16 Control Changes (config) are used.
+class MidiCharCallbacks : public NimBLECharacteristicCallbacks {
+  void onWrite(NimBLECharacteristic* c, NimBLEConnInfo&) override {
+    NimBLEAttValue v = c->getValue();
+    parseBleMidi(v.data(), v.length(), [](uint8_t status, uint8_t cc, uint8_t value) {
+      if (status != CFG_CHANNEL_STATUS || !cfgQueue) return;
+      uint8_t msg[2] = {cc, value};
+      xQueueSend(cfgQueue, msg, 0);  // never block the BLE task; drop if full
+    });
+  }
 };
 
 static void bleSetup() {
@@ -96,6 +130,7 @@ static void bleSetup() {
   // BLE-MIDI spec: read (returns empty), write without response, notify.
   midiChar = svc->createCharacteristic(
       MIDI_CHAR_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE_NR | NIMBLE_PROPERTY::NOTIFY);
+  midiChar->setCallbacks(new MidiCharCallbacks());
   // (The GATT server starts automatically when advertising starts.)
 
   // The 128-bit service UUID fills most of the 31-byte advertisement, so the
@@ -131,9 +166,12 @@ static void printParams() {
     Serial.print(' ');
     Serial.print(params.threshold[i]);
   }
-  Serial.printf(" | fs %u | curve %.2f | refr %u ms | win %u ms | nb %.2f | ref %.2f | alpha %.4f | raw %u\n",
+  Serial.printf(" | fs %u | curve %.2f | refr %u ms | win %u ms | nb %.2f | ref %.2f | alpha %.4f | rel %.2f | raw %u\n",
                 params.fullScale, params.curve, params.refractoryMs, params.windowMs, params.neighbourRatio,
-                params.refRatio, params.baselineAlpha, params.rawEvery);
+                params.refRatio, params.baselineAlpha, params.releaseRatio, params.rawEvery);
+  Serial.print("# gain");
+  for (int i = 0; i < NUM_STRINGS; i++) Serial.printf(" %.2f", params.gain[i]);
+  Serial.println();
 }
 
 static void printHelp() {
@@ -147,12 +185,15 @@ static void printHelp() {
   Serial.println("#   nb <x>               neighbour rejection ratio (0 = off, 1 = reject if neighbour louder)");
   Serial.println("#   ref <x>              reference piezo rejection ratio (0 = off)");
   Serial.println("#   alpha <x>            baseline tracking speed (0.0005..0.05)");
+  Serial.println("#   rel <x>              re-arm when signal < threshold × x (0.05..1, 1 = default)");
+  Serial.println("#   gain <string|all> <x> per-string input gain (0.25..4, 1 = default)");
   Serial.println("#   raw <n>              print raw values every n samples (0 = off, 1 = every sample)");
   Serial.println("#   test <string>        send a test strum over Bluetooth");
   Serial.println("#   stats                sample rate, Bluetooth status, counters");
   Serial.println("#   base                 current baselines");
   Serial.println("#   reset                factory defaults");
-  Serial.println("# Settings are saved automatically.");
+  Serial.println("# Settings are saved automatically. The app can also change them over Bluetooth");
+  Serial.println("# (Settings → כיול מיתרים); those are saved when you press Save in the app.");
 }
 
 static void printStats() {
@@ -244,6 +285,15 @@ static void handleCommand(char* line) {
     params.refRatio = constrain(atof(a), 0.0f, 5.0f);
   } else if (!strcmp(cmd, "alpha") && a) {
     params.baselineAlpha = constrain(atof(a), 0.0001f, 0.1f);
+  } else if (!strcmp(cmd, "rel") && a) {
+    params.releaseRatio = constrain(atof(a), 0.05f, 1.0f);
+  } else if (!strcmp(cmd, "gain")) {
+    int f, l;
+    if (!parseString(a, f, l) || !b) {
+      Serial.println("# usage: gain <1-6|all> <x>   e.g. gain 6 1.5");
+      return;
+    }
+    for (int s = f; s <= l; s++) params.gain[s] = constrain(atof(b), 0.25f, 4.0f);
   } else if (!strcmp(cmd, "raw") && a) {
     params.rawEvery = constrain(atoi(a), 0, 1000);
   } else if (!strcmp(cmd, "reset")) {
@@ -271,6 +321,56 @@ static void pollSerial() {
     } else if (cmdLen < sizeof(cmdBuf) - 1) {
       cmdBuf[cmdLen++] = (char)tolower((unsigned char)c);
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Remote calibration (channel-16 CCs from the app)
+// ---------------------------------------------------------------------------
+static void sendConfigDump() {
+  uint8_t d[64];
+  int n = configDump(params, d, sizeof(d));
+  for (int i = 0; i < n; i++) midiQueue(CFG_CHANNEL_STATUS, d[2 * i], d[2 * i + 1]);
+  midiFlush();
+}
+
+static void pollConfig() {
+  uint8_t msg[2];
+  while (cfgQueue && xQueueReceive(cfgQueue, msg, 0) == pdTRUE) {
+    switch (applyConfigCC(params, cfgState, msg[0], msg[1])) {
+      case CFG_SAVE:
+        saveParams();
+        Serial.println("# settings saved (from app)");
+        printParams();
+        break;
+      case CFG_RESET:
+        params = defaultParams();
+        detector.reset();
+        Serial.println("# factory defaults (from app) – not saved until Save");
+        sendConfigDump();
+        break;
+      case CFG_MONITOR_ON:
+        monitorOn = true;
+        for (int i = 0; i < NUM_STRINGS; i++) peakSince[i] = 0;
+        sendConfigDump();
+        break;
+      case CFG_MONITOR_OFF:
+        monitorOn = false;
+        break;
+      default:
+        break;  // CHANGED: already live – the detector reads params every sample
+    }
+  }
+}
+
+/** While the app's calibration screen is open: per-string peak levels every 50 ms. */
+static void reportPeaks() {
+  for (int i = 0; i < NUM_STRINGS; i++) peakSince[i] = max(peakSince[i], detector.signal(i));
+  if (!monitorOn || !bleConnected || millis() - monitorLastMs < MONITOR_PERIOD_MS) return;
+  monitorLastMs = millis();
+  for (int i = 0; i < NUM_STRINGS; i++) {
+    midiQueue(CFG_CHANNEL_STATUS, CC_PEAK_FIRST + i, ccFromLevel(peakSince[i]));
+    peakSince[i] = 0;
   }
 }
 
@@ -317,6 +417,7 @@ static void sampleOnce() {
       noteOffAt[s] = 0;
     }
   }
+  reportPeaks();
   midiFlush();
 
   printRaw(v, ref);
@@ -350,6 +451,7 @@ void setup() {
   prefs.begin("midiguitar", false);
   loadParams();
 
+  cfgQueue = xQueueCreate(64, 2);
   bleSetup();
 
   Serial.println("# MIDI Guitar ready – type help");
@@ -370,6 +472,7 @@ void loop() {
     sampleOnce();
   } else {
     pollSerial();
+    pollConfig();
   }
 
   if (millis() - statWindowStart >= 1000) {
