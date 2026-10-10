@@ -195,6 +195,11 @@ export default function SongPlayer() {
         </button>
       </div>
 
+      {song.source === 'hebrew-book' && (
+        <p className={styles.credit}>
+          אקורדים: {song.genre} · לשימוש לא מסחרי
+        </p>
+      )}
       {isDataset && (
         <p className={styles.credit}>
           {[song.genre, song.year].filter(Boolean).join(' · ')}

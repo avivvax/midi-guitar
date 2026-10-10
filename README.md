@@ -157,6 +157,30 @@ Debug → "השהיה" (latency) shows:
 - **Audio output:** `baseLatency + outputLatency` reported by the browser.
 - **Total (est.):** the sum of the two. It does not include the BLE connection interval or the serial peak window (6 ms by default).
 
+## Built-in Hebrew library (ספר האקורדים הישראלי)
+
+The Songs tab includes **1,394 Hebrew songs** from **"ספר האקורדים הישראלי" by Oren Mustaki (אורן מוסטקי)**. Only the chord progressions are included, no lyrics.
+
+> **Non-commercial use only.** These chord charts come from Oren Mustaki's book and are included for this free, non-commercial prototype. **The author's permission is still pending.** The library must be removed (`public/he/` and `tools/hebrew_library/source/`), or permission obtained, before any commercial use or wider distribution. The credit appears under the "עברית" section and in the player for every song from the book, together with its page number.
+
+**In the app:**
+- Hebrew songs show up in the normal Songs search, mixed into the local results.
+- A "עברית" (Hebrew) browse section has two tabs: **אמנים א–ת** (artists A–ת) and **אמנים פופולריים** (popular artists, the 40 with the most songs in the book).
+- A song credited to several performers ("מתי כספי, שלמה גרוניך") is listed under each of them.
+- Nothing loads until you search or open the section: first `he/index.json` (about 80 KB), then one 100-song file when you open a song. Opened songs are kept on the device, so favorites work offline.
+
+**Data pipeline:** `tools/hebrew_library/build_hebrew.py` reads `source/hebrew_chords_raw.json` and writes `public/he/`. CI rebuilds it and fails if the committed output is out of date.
+
+The build:
+- **Cleans titles and artists.** It fixes broken comma spacing in multi-artist names, strips leading dots, splits the one merged entry ("Let love in" / כנסיית השכל), and unifies artist spelling variants (שם-טוב לוי → שם טוב לוי).
+- **Converts Israeli chord-book notation** to standard symbols:
+  - `G4` → `Gsus4`, `D2` → `Dsus2`, `G47` → `G7sus4`, `D94` → `D9sus4`
+  - `C7+` → `C7#5`, `D5+` → `D+`, `M7` → `maj7`, `°` → `dim`
+  - A few rare symbols map to their nearest playable chord: `Am6+` → `Am6`, `F#m74` → `F#m11`, `Am4` → `Am`, `Em79+` → `Em9`, `C5-` → `C`.
+  - Every conversion is listed in `tools/hebrew_library/build_report.json`.
+- **Labels sections by playing order.** The most repeated block is **פזמון**, and the other blocks are **בית 1, בית 2…**. Identical blocks share a name, and a song with a single block is **שיר**.
+- **Gives every chord 4 beats.** The book has no timing, so strum-count or manual mode fits best.
+
 ## Chordonomicon song index
 
 The Songs tab also searches about **430,000 chord progressions** from the [Chordonomicon](https://huggingface.co/datasets/ailsntua/Chordonomicon) dataset. The index is static, sharded JSON served from GitHub Pages; there is no backend.
@@ -260,6 +284,7 @@ src/
   music/   theory: notes, tunings, chords, voicings, keys (+tests)
   song/    chord symbols, chord-sheet parser, advance logic, library, session/metronome, Chordonomicon index client (+tests)
 tools/chord_index/  name resolver + static index builder for the Chordonomicon dataset (Python, stdlib)
+tools/hebrew_library/  builder for the built-in Hebrew library (source JSON → public/he/)
   audio/   engine (voices, instruments, reverb), karplus (+tests), midiOut
   state/   zustand store (persisted settings)
   ui/      Connect, Play, Settings, Debug, SignalMeter, StringsView, ChordDiagram

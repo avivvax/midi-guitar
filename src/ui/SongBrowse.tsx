@@ -14,6 +14,7 @@ import {
   type IndexManifest,
   type IndexRow,
 } from '../song/chordIndex';
+import { songCount } from './songCount';
 import styles from './Songs.module.css';
 
 type Tab = 'artists' | 'facets' | 'popular';
@@ -92,7 +93,7 @@ function ArtistList({ artists, onArtist }: { artists: BrowseArtist[]; onArtist: 
             <span className={styles.rowTitle} dir="auto">
               {a[1]}
             </span>
-            <span className={styles.rowSub}>{a[2].toLocaleString('he-IL')} שירים</span>
+            <span className={styles.rowSub}>{songCount(a[2])}</span>
           </button>
         </li>
       ))}
@@ -149,7 +150,7 @@ function ArtistSongs(props: { artist: BrowseArtist; onBack: () => void; renderRo
         </button>
         <div className={styles.pTitle}>
           <b dir="auto">{artist[1]}</b>
-          <span>{artist[2].toLocaleString('he-IL')} שירים</span>
+          <span>{songCount(artist[2])}</span>
         </div>
       </div>
       {data ? renderRows(data) : <Status failed={failed} />}

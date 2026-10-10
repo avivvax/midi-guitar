@@ -25,8 +25,8 @@ export interface Song {
   sections: SongSection[];
   /** true for songs created through the Import screen. */
   user?: boolean;
-  /** Set for songs opened from the Chordonomicon index. */
-  source?: 'chordonomicon';
+  /** Set for songs opened from the Chordonomicon index or the built-in Hebrew library. */
+  source?: 'chordonomicon' | 'hebrew-book';
   year?: number;
   genre?: string;
 }

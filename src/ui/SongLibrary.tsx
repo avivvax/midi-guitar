@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { loadIndexSong, loadManifest, searchIndex, stableId, type IndexManifest, type IndexRow } from '../song/chordIndex';
 import { transposeKey } from '../song/chordSymbol';
+import { heSongId, loadHeIndex, loadHeSong, searchHe, type HeRow } from '../song/hebrewLibrary';
 import { SEED_SONGS, searchSongs } from '../song/library';
 import { useStore } from '../state/store';
+import HebrewBrowse from './HebrewBrowse';
 import SongBrowse from './SongBrowse';
 import styles from './Songs.module.css';
 
@@ -16,6 +18,7 @@ export default function SongLibrary() {
   const [remote, setRemote] = useState<{ q: string; rows: IndexRow[]; needMore: boolean } | null>(null);
   const [loadingRow, setLoadingRow] = useState<number | null>(null);
   const [error, setError] = useState('');
+  const [heHits, setHeHits] = useState<{ q: string; rows: HeRow[] } | null>(null);
 
   useEffect(() => {
     void loadManifest().then(setManifest);
@@ -39,6 +42,37 @@ export default function SongLibrary() {
       clearTimeout(id);
     };
   }, [query, manifest, filter]);
+
+  // Built-in Hebrew library: searched together with the local songs (index loads on first search).
+  useEffect(() => {
+    const q = query.trim();
+    if (filter !== 'all' || q.length < 2) {
+      setHeHits(null);
+      return;
+    }
+    let live = true;
+    void loadHeIndex().then((rows) => live && setHeHits({ q, rows: searchHe(rows, q) }));
+    return () => {
+      live = false;
+    };
+  }, [query, filter]);
+
+  const openHeRow = async (row: HeRow, favorite = false) => {
+    setLoadingRow(-1 - row[0]);
+    setError('');
+    try {
+      const song = await loadHeSong(row);
+      if (!song) throw new Error('missing');
+      cacheSong(song);
+      if (favorite) {
+        if (!useStore.getState().favorites.includes(song.id)) toggleFavorite(song.id);
+      } else openSong(song.id);
+    } catch {
+      setError('לא הצלחתי לטעון את השיר. בדוק חיבור לאינטרנט ונסה שוב.');
+    } finally {
+      setLoadingRow(null);
+    }
+  };
 
   const openRow = async (row: IndexRow, favorite = false) => {
     setLoadingRow(row[0]);
@@ -65,6 +99,39 @@ export default function SongLibrary() {
     return searchSongs(list, query);
   }, [all, cachedSongs, filter, favorites, query]);
   const localIds = new Set(shown.map((s) => s.id));
+
+  /** Hebrew library rows: same look and behaviour as the dataset rows. */
+  const renderHeRows = (rows: HeRow[]) => (
+    <ul className={styles.list}>
+      {rows
+        .filter((r) => !localIds.has(heSongId(r)))
+        .map((r) => {
+          const id = heSongId(r);
+          const fav = favorites.includes(id);
+          return (
+            <li key={id} className={styles.row}>
+              <button
+                className={`${styles.star} ${fav ? styles.starOn : ''}`}
+                aria-label={fav ? 'הסר ממועדפים' : 'הוסף למועדפים'}
+                aria-pressed={fav}
+                onClick={() => (fav ? toggleFavorite(id) : void openHeRow(r, true))}
+              >
+                {fav ? '★' : '☆'}
+              </button>
+              <button className={styles.rowMain} onClick={() => void openHeRow(r)} disabled={loadingRow !== null}>
+                <span className={styles.rowTitle} dir="auto">
+                  {r[1]}
+                </span>
+                <span className={styles.rowSub}>
+                  <bdi>{r[2]}</bdi> · <span className="ltr">{r[3]}</span>
+                  {loadingRow === -1 - r[0] ? ' · טוען…' : ''}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+    </ul>
+  );
 
   /** Index rows (search, artist and genre lists): tap to open, ☆ to keep as a favorite. */
   const renderRows = (rows: IndexRow[]) => (
@@ -124,6 +191,14 @@ export default function SongLibrary() {
             {label}
           </button>
         ))}
+        {filter === 'all' && !query.trim() && (
+          <button
+            className={styles.jump}
+            onClick={() => document.getElementById('hebrew')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          >
+            עברית ↓
+          </button>
+        )}
         {manifest?.browse && filter === 'all' && !query.trim() && (
           <button
             className={styles.jump}
@@ -134,7 +209,7 @@ export default function SongLibrary() {
         )}
       </div>
 
-      {shown.length === 0 && !remote?.rows.length && (
+      {shown.length === 0 && !remote?.rows.length && !heHits?.rows.length && (
         <p className={styles.empty}>
           {filter === 'fav' ? 'עוד אין מועדפים. סמן ★ ליד שיר.' : filter === 'mine' ? 'עוד לא ייבאת שירים.' : 'לא נמצאו שירים.'}
         </p>
@@ -176,6 +251,9 @@ export default function SongLibrary() {
           );
         })}
       </ul>
+      {heHits && heHits.q === query.trim() && heHits.rows.length > 0 && renderHeRows(heHits.rows)}
+
+      {filter === 'all' && !query.trim() && <HebrewBrowse renderRows={renderHeRows} />}
 
       {filter === 'all' && manifest && query.trim().length >= 2 && (
         <section className={styles.remote} aria-label="תוצאות מהמאגר">
