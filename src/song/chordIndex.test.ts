@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bodyToSong, hasShard, matches, normalize, pickWord, prefixFile, rank, shardPrefix, stableId, type IndexRow } from './chordIndex';
+import { bodyToSong, decadeLabel, facetKey, genreLabel, hasShard, letterLabel, matches, normalize, pickWord, prefixFile, rank, shardPrefix, stableId, type IndexRow } from './chordIndex';
 import { parseChordSymbol } from './chordSymbol';
 
 describe('normalisation shared with the Python builder', () => {
@@ -75,5 +75,22 @@ describe('bodyToSong', () => {
   it('gives a stable id from title and artist', () => {
     expect(stableId('Let It Be', 'The Beatles')).toBe(stableId("let it be", 'the beatles'));
     expect(stableId('Let It Be', 'The Beatles')).not.toBe(stableId('Let It Be', 'Aretha Franklin'));
+  });
+});
+
+describe('browse helpers', () => {
+  it('builds facet keys like the builder', () => {
+    expect(facetKey('rock', 1990)).toBe('rock|1990');
+    expect(facetKey(null, 2010)).toBe('*|2010');
+    expect(facetKey('pop rock', null)).toBe('pop rock|*');
+  });
+  it('labels genres, decades and letters', () => {
+    expect(genreLabel('rock')).toBe('רוק');
+    expect(genreLabel('unknown')).toBe('unknown');
+    expect(decadeLabel(1940)).toBe('לפני 1950');
+    expect(decadeLabel(1960)).toBe('שנות ה-60');
+    expect(decadeLabel(2010)).toBe('שנות ה-2010');
+    expect(letterLabel('b')).toBe('B');
+    expect(letterLabel('א')).toBe('א');
   });
 });

@@ -4,7 +4,7 @@ import sys
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import clean_title, convert_chord, estimate_key, index_words, normalize, parse_progression, prefix_file  # noqa: E402
+from common import clean_title, convert_chord, decade_of, letter_of, main_genre, estimate_key, index_words, normalize, parse_progression, prefix_file  # noqa: E402
 
 
 class T(unittest.TestCase):
@@ -46,6 +46,22 @@ class T(unittest.TestCase):
         }
         for src, want in cases.items():
             self.assertEqual(clean_title(src), want, src)
+
+    def test_facets(self):
+        self.assertEqual(main_genre("rock", ""), "rock")
+        self.assertEqual(main_genre("", "'folk rock' 'singer-songwriter'"), "rock")
+        self.assertEqual(main_genre("", "'classic soul' 'motown'"), "soul")
+        self.assertEqual(main_genre("", "'pop rock' 'pop'"), "pop rock")
+        self.assertEqual(main_genre("", "'chanson'"), "")
+        self.assertEqual(decade_of("1990.0", ""), 1990)
+        self.assertEqual(decade_of("", "1987-05-01"), 1980)
+        self.assertEqual(decade_of("1920.0", ""), 1940)
+        self.assertIsNone(decade_of("", ""))
+        self.assertEqual(letter_of("The Beatles"), "b")
+        self.assertEqual(letter_of("The The"), "t")
+        self.assertEqual(letter_of("Édith Piaf"), "e")
+        self.assertEqual(letter_of("אריק איינשטיין"), "א")
+        self.assertEqual(letter_of("50 Cent"), "#")
 
     def test_key(self):
         self.assertEqual(estimate_key("G D Am C G D Am C".split()), "G")

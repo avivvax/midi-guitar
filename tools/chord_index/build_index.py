@@ -19,9 +19,15 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import clean_title, estimate_key, index_words, iter_rows, normalize, parse_progression, prefix_file  # noqa: E402
+from common import (  # noqa: E402
+    clean_title, decade_of, estimate_key, index_words, iter_rows, letter_of, main_genre, normalize, parse_progression,
+    prefix_file, sort_name,
+)
 
 PER_BODY = 400
+ARTIST_SHARD = 50    # artists per b/ar/<n>.json song-list file
+PAGE = 200           # songs per genre/decade page
+POPULAR = 200        # artists in b/popular.json
 SPLIT_AT = 2500  # entries in a prefix shard before it is split one character deeper
 MIN_CHORDS = 4
 
@@ -88,6 +94,79 @@ def shard_prefixes(entries_by_word, split_at):
     return shards, depth
 
 
+def write_browse(out, recs):
+    """Static browse files (all loaded on demand by the app):
+      b/al/<hex letter>.json   artists starting with a letter: [[artistIdx, name, songCount], ...]
+      b/ar/<n>.json            songs per artist: {"<artistIdx>": [[num, title, key], ...]}
+      b/popular.json           top artists by song count: [[artistIdx, name, songCount], ...]
+      b/facets.json            genres / decades with counts, and counts per genre|decade combination
+      b/f/<hex combo>/<p>.json songs for "genre|decade" (either may be "*"), PAGE per file:
+                               [[num, title, artist, key], ...], most-covered artists first
+    recs are sorted by artist, so each artist's songs are contiguous.
+    """
+    artists = []  # [key, display name, [nums]]
+    for num, rec in enumerate(recs):
+        k = normalize(rec["artist"])
+        if not artists or artists[-1][0] != k:
+            artists.append([k, rec["artist"], []])
+        artists[-1][2].append(num)
+
+    letters = collections.defaultdict(list)
+    artist_of = {}
+    for idx, (_, name, nums) in enumerate(artists):
+        letters[letter_of(name)].append([idx, name, len(nums)])
+        for n in nums:
+            artist_of[n] = idx
+    for letter, rows in letters.items():
+        rows.sort(key=lambda r: sort_name(r[1]))
+        write_json(f"{out}/b/al/{prefix_file(letter)}.json", rows)
+
+    for start in range(0, len(artists), ARTIST_SHARD):
+        chunk = {}
+        for idx in range(start, min(start + ARTIST_SHARD, len(artists))):
+            chunk[str(idx)] = [[n, recs[n]["title"], recs[n]["key"]] for n in artists[idx][2]]
+        write_json(f"{out}/b/ar/{start // ARTIST_SHARD}.json", chunk)
+
+    ranked = sorted(range(len(artists)), key=lambda i: (-len(artists[i][2]), artists[i][0]))
+    write_json(f"{out}/b/popular.json", [[i, artists[i][1], len(artists[i][2])] for i in ranked[:POPULAR]])
+
+    # Facets: each song goes into "g|*", "*|d" and "g|d" when known.
+    combos = collections.defaultdict(list)
+    for num, rec in enumerate(recs):
+        g, d = rec["mg"], rec["dec"]
+        keys = []
+        if g:
+            keys.append(f"{g}|*")
+        if d:
+            keys.append(f"*|{d}")
+        if g and d:
+            keys.append(f"{g}|{d}")
+        for k in keys:
+            combos[k].append(num)
+    size = {i: len(a[2]) for i, a in enumerate(artists)}
+    for k, nums in combos.items():
+        nums.sort(key=lambda n: (-size[artist_of[n]], normalize(recs[n]["artist"]), normalize(recs[n]["title"])))
+        for p in range(0, len(nums), PAGE):
+            write_json(f"{out}/b/f/{prefix_file(k)}/{p // PAGE}.json",
+                       [[n, recs[n]["title"], recs[n]["artist"], recs[n]["key"]] for n in nums[p : p + PAGE]])
+    genres = collections.Counter(r["mg"] for r in recs if r["mg"])
+    decades = collections.Counter(r["dec"] for r in recs if r["dec"])
+    write_json(f"{out}/b/facets.json", {
+        "genres": genres.most_common(),
+        "decades": sorted(decades.items()),
+        "combos": {k: len(v) for k, v in combos.items()},
+        "page": PAGE,
+    })
+
+    order = sorted(letters, key=lambda l: (0 if "a" <= l <= "z" else 2 if l == "#" else 1, l))
+    print(f"browse: {len(artists)} artists, {len(letters)} letters, {len(combos)} genre/decade lists", flush=True)
+    return {
+        "artists": len(artists),
+        "artistShard": ARTIST_SHARD,
+        "letters": [[l, len(letters[l])] for l in order],
+    }
+
+
 def write_json(path, obj):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
@@ -116,7 +195,9 @@ def main():
         year = (row["release_date"] or "")[:4]
         genre = row["main_genre"] or (row["genres"].split("' '")[0].strip("'") if row["genres"] else "")
         best[sid] = {"title": clean_title(songs[sid]), "artist": artists[aid], "sections": sections, "n": n,
-                     "y": int(year) if year.isdigit() else None, "g": genre}
+                     "y": int(year) if year.isdigit() else None, "g": genre,
+                     "mg": main_genre(row["main_genre"], row["genres"]),
+                     "dec": decade_of(row["decade"], row["release_date"])}
 
     # One entry per (title, artist): remasters and re-releases collapse to the fullest transcription.
     dedup = {}
@@ -134,6 +215,7 @@ def main():
     for num, rec in enumerate(recs):
         chords = [c for _, cs in rec["sections"] for c in cs]
         key = estimate_key(chords)
+        rec["key"] = key
         body = pack_sections(rec["sections"])
         body["k"] = key
         if rec["y"]:
@@ -167,6 +249,8 @@ def main():
         layout[kind] = {"depth": depth, "shards": len(shards), "maxRows": max(sizes, default=0)}
         print(f"{kind}: {len(shards)} shards, max {max(sizes, default=0)} rows, split prefixes {len(depth)}", flush=True)
 
+    browse = write_browse(out, recs)
+
     manifest = {
         "version": 1,
         "built": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -177,6 +261,7 @@ def main():
         "depth": {"t": layout["t"]["depth"], "a": layout["a"]["depth"]},
         # Prefixes that have a shard file, so clients never request a missing one.
         "files": layout["files"],
+        "browse": browse,
         "license": "CC BY-NC 4.0",
         "attribution": ATTRIBUTION,
         "citation": CITATION,

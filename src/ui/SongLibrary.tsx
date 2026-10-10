@@ -3,6 +3,7 @@ import { loadIndexSong, loadManifest, searchIndex, stableId, type IndexManifest,
 import { transposeKey } from '../song/chordSymbol';
 import { SEED_SONGS, searchSongs } from '../song/library';
 import { useStore } from '../state/store';
+import SongBrowse from './SongBrowse';
 import styles from './Songs.module.css';
 
 type Filter = 'all' | 'fav' | 'mine';
@@ -65,6 +66,37 @@ export default function SongLibrary() {
   }, [all, cachedSongs, filter, favorites, query]);
   const localIds = new Set(shown.map((s) => s.id));
 
+  /** Index rows (search, artist and genre lists): tap to open, ☆ to keep as a favorite. */
+  const renderRows = (rows: IndexRow[]) => (
+    <ul className={styles.list}>
+      {rows.map((r) => {
+        const id = stableId(r[1], r[2]);
+        const fav = favorites.includes(id);
+        return (
+          <li key={r[0]} className={styles.row}>
+            <button
+              className={`${styles.star} ${fav ? styles.starOn : ''}`}
+              aria-label={fav ? 'הסר ממועדפים' : 'הוסף למועדפים'}
+              aria-pressed={fav}
+              onClick={() => (fav ? toggleFavorite(id) : void openRow(r, true))}
+            >
+              {fav ? '★' : '☆'}
+            </button>
+            <button className={styles.rowMain} onClick={() => void openRow(r)} disabled={loadingRow !== null}>
+              <span className={styles.rowTitle} dir="auto">
+                {r[1]}
+              </span>
+              <span className={styles.rowSub}>
+                <bdi>{r[2]}</bdi> · <span className="ltr">{r[3]}</span>
+                {loadingRow === r[0] ? ' · טוען…' : ''}
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+
   return (
     <div className={styles.wrap}>
       <div className={styles.libHead}>
@@ -92,6 +124,14 @@ export default function SongLibrary() {
             {label}
           </button>
         ))}
+        {manifest?.browse && filter === 'all' && !query.trim() && (
+          <button
+            className={styles.jump}
+            onClick={() => document.getElementById('browse')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          >
+            דפדוף במאגר ↓
+          </button>
+        )}
       </div>
 
       {shown.length === 0 && !remote?.rows.length && (
@@ -150,38 +190,15 @@ export default function SongLibrary() {
           ) : remote.rows.length === 0 ? (
             <p className={styles.empty}>לא נמצא במאגר</p>
           ) : (
-            <ul className={styles.list}>
-              {remote.rows
-                .filter((r) => !localIds.has(stableId(r[1], r[2])))
-                .map((r) => {
-                  const id = stableId(r[1], r[2]);
-                  const fav = favorites.includes(id);
-                  return (
-                    <li key={r[0]} className={styles.row}>
-                      <button
-                        className={`${styles.star} ${fav ? styles.starOn : ''}`}
-                        aria-label={fav ? 'הסר ממועדפים' : 'הוסף למועדפים'}
-                        aria-pressed={fav}
-                        onClick={() => (fav ? toggleFavorite(id) : void openRow(r, true))}
-                      >
-                        {fav ? '★' : '☆'}
-                      </button>
-                      <button className={styles.rowMain} onClick={() => void openRow(r)} disabled={loadingRow !== null}>
-                        <span className={styles.rowTitle} dir="auto">
-                          {r[1]}
-                        </span>
-                        <span className={styles.rowSub}>
-                          <bdi>{r[2]}</bdi> · <span className="ltr">{r[3]}</span>
-                          {loadingRow === r[0] ? ' · טוען…' : ''}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-            </ul>
+            renderRows(remote.rows.filter((r) => !localIds.has(stableId(r[1], r[2]))))
           )}
         </section>
       )}
+
+      {filter === 'all' && manifest?.browse && query.trim().length < 2 && (
+        <SongBrowse manifest={manifest} renderRows={renderRows} />
+      )}
+      {error && query.trim().length < 2 && <p className={styles.warn}>{error}</p>}
 
       {manifest && (
         <p className={styles.credit}>

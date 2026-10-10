@@ -172,3 +172,58 @@ def estimate_key(chords):
 def iter_rows(csv_path):
     with open(csv_path, newline="", encoding="utf-8") as f:
         yield from csv.DictReader(f)
+
+
+# --- browse facets -----------------------------------------------------------
+MAIN_GENRES = ["pop", "rock", "country", "alternative", "pop rock", "punk", "metal", "rap", "soul", "jazz",
+               "reggae", "electronic"]
+# Checked in order against the detailed genre tags when main_genre is empty.
+_GENRE_HINTS = [
+    ("pop rock", "pop rock"), ("metal", "metal"), ("punk", "punk"), ("hip hop", "rap"), ("rap", "rap"),
+    ("reggae", "reggae"), ("jazz", "jazz"), ("soul", "soul"), ("r&b", "soul"), ("funk", "soul"),
+    ("country", "country"), ("bluegrass", "country"), ("edm", "electronic"), ("house", "electronic"),
+    ("techno", "electronic"), ("electro", "electronic"), ("alternative", "alternative"), ("indie", "alternative"),
+    ("grunge", "alternative"), ("rock", "rock"), ("pop", "pop"),
+]
+
+
+def main_genre(main, genres):
+    """The dataset's main_genre, or one inferred from its detailed genre tags; '' if unknown."""
+    if main in MAIN_GENRES:
+        return main
+    tags = [t.strip("' ") for t in genres.split("' '")] if genres else []
+    for needle, g in _GENRE_HINTS:
+        if any(needle in t for t in tags):
+            return g
+    return ""
+
+
+def decade_of(decade_field, release_date):
+    """'1990.0' -> 1990; anything before 1950 is grouped as 1940 ('before 1950'); None if unknown."""
+    try:
+        d = int(float(decade_field))
+    except (TypeError, ValueError):
+        year = (release_date or "")[:4]
+        if not year.isdigit():
+            return None
+        d = int(year) // 10 * 10
+    return max(1940, d)
+
+
+def sort_name(name):
+    """Artist sort key: normalised, without a leading 'the' ("The Beatles" sorts as "beatles")."""
+    n = normalize(name)
+    return n[4:] if n.startswith("the ") and len(n) > 4 else n
+
+
+def letter_of(name):
+    """Browse letter: a–z for Latin names, the first letter for other scripts, '#' for digits/symbols."""
+    n = sort_name(name)
+    if not n:
+        return "#"
+    ch = n[0]
+    if "a" <= ch <= "z":
+        return ch
+    if ch.isalpha():
+        return ch
+    return "#"

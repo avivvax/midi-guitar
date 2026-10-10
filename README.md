@@ -173,6 +173,13 @@ The attribution also appears in the app, under the song library and in the playe
 - Dataset songs open in **strum-count** mode by default; each dataset song remembers its own mode.
 - The dataset has no chord durations, so every chord counts as 4 beats. The key is estimated from the chords.
 
+**Browse (no search needed):** under the local songs, the Songs tab has a **דפדוף במאגר** (browse the index) section. The "דפדוף במאגר ↓" chip jumps to it. It has three tabs:
+- **Artists A–Z:** letter chips. "The" is ignored, so The Beatles is under B. Tap a letter for its artists with song counts, then an artist for their songs.
+- **Genre and decade:** chips for 12 genres and for decades (before 1950, then 1950s–2020s). Pick either or both. Songs come 200 at a time, artists with the most songs first, with a "more" button for the next page. Songs without a dataset `main_genre` get one inferred from their detailed genre tags where they clearly match; the rest appear only under decades.
+- **Popular:** the 200 artists with the most songs in the index.
+
+Local songs and favorites stay at the top of the tab. Nothing is pre-loaded: each list is one small static file, fetched only when you open it.
+
 **How the index is produced** (`tools/chord_index/`, Python standard library only):
 
 | Step | Where | What |
@@ -190,6 +197,13 @@ The build:
 Layout of `dist/cx/`:
 - `manifest.json`: counts, the build stamp, and how deep busy prefixes are split
 - `c/<n>.json`: song bodies, 400 per file (about 15 KB gzipped each)
+- `b/`: browse files
+  - `al/<hex letter>.json`: the artists for one letter
+  - `ar/<n>.json`: song lists, 50 artists per file
+  - `popular.json`: the top 200 artists
+  - `facets.json`: genre and decade counts
+  - `f/<hex "genre|decade">/<page>.json`: 200 songs per page, about 3 KB gzipped
+  - In total about 60 MB at full coverage.
 - `t/<hex prefix>.json`, `a/<hex prefix>.json`: search files keyed by the first letters of each word in titles and artists. Busy prefixes are split deeper. Typical files are about 1 KB gzipped; the largest ("love") is about 200 KB. Common words such as "the" and "you" are not indexed.
 - In total about 220 MB at full coverage, within the GitHub Pages limits.
 

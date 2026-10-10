@@ -17,6 +17,8 @@ export interface IndexManifest {
   depth: { t: Record<string, number>; a: Record<string, number> };
   /** Prefixes that have a shard file (absent in older manifests). */
   files?: { t: string[]; a: string[] };
+  /** Browse files (absent in older manifests). */
+  browse?: { artists: number; artistShard: number; letters: [string, number][] };
   license: string;
   attribution: string;
   citation: string;
@@ -198,3 +200,66 @@ export async function loadIndexSong(row: IndexRow): Promise<Song | null> {
   const body = bodies?.[row[0] % m.perBody];
   return body ? bodyToSong(row, body) : null;
 }
+
+// --- Browse (artists A–Z, popular, genre/decade) --------------------------
+/** [artistIdx, name, songCount] */
+export type BrowseArtist = [number, string, number];
+
+export interface Facets {
+  genres: [string, number][];
+  decades: [number, number][];
+  /** Song count per "genre|decade" ("*" = any). */
+  combos: Record<string, number>;
+  page: number;
+}
+
+export const facetKey = (genre: string | null, decade: number | null): string =>
+  `${genre ?? '*'}|${decade ?? '*'}`;
+
+async function browseManifest(): Promise<IndexManifest | null> {
+  const m = await loadManifest();
+  return m?.browse ? m : null;
+}
+
+export async function loadLetter(letter: string): Promise<BrowseArtist[]> {
+  const m = await browseManifest();
+  return (m && (await shard<BrowseArtist[]>(`b/al/${prefixFile(letter)}.json`, m))) ?? [];
+}
+
+export async function loadPopular(): Promise<BrowseArtist[]> {
+  const m = await browseManifest();
+  return (m && (await shard<BrowseArtist[]>('b/popular.json', m))) ?? [];
+}
+
+export async function loadArtistSongs(artist: BrowseArtist): Promise<IndexRow[]> {
+  const m = await browseManifest();
+  if (!m?.browse) return [];
+  const file = await shard<Record<string, [number, string, string][]>>(
+    `b/ar/${Math.floor(artist[0] / m.browse.artistShard)}.json`,
+    m,
+  );
+  return (file?.[String(artist[0])] ?? []).map(([num, title, key]) => [num, title, artist[1], key]);
+}
+
+export async function loadFacets(): Promise<Facets | null> {
+  const m = await browseManifest();
+  return m ? shard<Facets>('b/facets.json', m) : null;
+}
+
+export async function loadFacetPage(genre: string | null, decade: number | null, page: number): Promise<IndexRow[]> {
+  const m = await browseManifest();
+  if (!m || (genre === null && decade === null)) return [];
+  return (await shard<IndexRow[]>(`b/f/${prefixFile(facetKey(genre, decade))}/${page}.json`, m)) ?? [];
+}
+
+const GENRE_HE: Record<string, string> = {
+  pop: 'פופ', rock: 'רוק', country: 'קאנטרי', alternative: 'אלטרנטיבי', 'pop rock': 'פופ-רוק', punk: 'פאנק',
+  metal: 'מטאל', rap: 'ראפ', soul: 'סול', jazz: "ג'אז", reggae: 'רגאיי', electronic: 'אלקטרוני',
+};
+export const genreLabel = (g: string): string => GENRE_HE[g] ?? g;
+export function decadeLabel(d: number): string {
+  if (d < 1950) return 'לפני 1950';
+  if (d < 2000) return `שנות ה-${String(d).slice(2)}`;
+  return `שנות ה-${d}`;
+}
+export const letterLabel = (l: string): string => (l >= 'a' && l <= 'z' ? l.toUpperCase() : l);
