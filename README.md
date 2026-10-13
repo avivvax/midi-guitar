@@ -25,9 +25,9 @@ To test on a phone from the dev server, use `npm run dev -- --host` and open it 
 | Screen | Purpose |
 | --- | --- |
 | **חיבור / Connect** | Pick a transport. Shows the connection status and a live 6-bar signal meter. |
-| **נגינה / Play** | 8-slot chord palette (thumb zone), current chord with its diagram, capo −/+, chord/free mode, instrument, and 6 animated strings. Tap a string to pluck it, or drag across the strings to strum. |
+| **נגינה / Play** | 8-slot chord palette (thumb zone), current chord with its diagram, capo −/+, chord/free mode, the instrument picker (82 string instruments, see "String instruments"), register ◀ ▶ for instruments with more than 6 strings, tremolo where the instrument has it, and 6 animated strings. Tap a string to pluck it, or drag across the strings to strum. |
 | **שירים / Songs** | Song library, player (tempo / strum-count / manual advance) and chord-sheet import. See "Song mode" below. |
-| **הגדרות / Settings** | Tuning (presets plus a custom per-string editor), key, chord editor (filter to chords in the key), volume, reverb, MIDI out, and **כיול מיתרים** (string calibration, below). |
+| **הגדרות / Settings** | Instrument and its tunings (plus a custom per-string editor), what the extra physical strings do on instruments with fewer than 6, key, chord editor (filter to chords in the key), volume, reverb, MIDI out, and **כיול מיתרים** (string calibration, below). |
 | **דיבאג / Debug** | Scope of the per-string signals with the threshold line, live-tunable detector parameters, strum→sound latency, and an event log. |
 
 Settings are saved in `localStorage`.
@@ -171,28 +171,67 @@ The firmware also sends a dump after a reset (CC 31). If no dump arrives within 
 
 ## Music engine
 
-- **Tunings:** Standard, Drop D, DADGAD, Open G, half-step down, and a custom per-string editor.
-- **Software capo** 0–7. Like a real capo, it transposes the *shape*: the palette chord "C" with capo 2 sounds as D, and the Play screen shows "sounds D".
+- **Instruments and tunings:** every instrument in the registry has its own standard tuning(s) and a custom per-string editor (see "String instruments"). The guitars keep Standard, Drop D, DADGAD, Open G, Open D and half-step down.
+- **Software capo** 0–7. Like a real capo, it transposes the *shape*: the palette chord "C" with capo 2 sounds as D, and the Play screen shows "sounds D". On every instrument the chord names the shape and the capo transposes the sound.
 - **Chords:** maj, m, 7, maj7, m7, sus2, sus4, dim, aug, 5 (power).
-  - Standard tuning uses hand-written open shapes, then movable E- and A-shape barres.
-  - Other tunings use a search over playable voicings: ≤4-fret span, ≤4 fingers (barre aware), bass note = root, all required tones, and muted strings respected.
-- **Key selector:** "only chords in the key" filters the editor to chords whose notes are all in the scale. "מלא פלטה מהסולם" (fill palette from key) fills the 8 slots.
-- **Chord mode:** strumming string *i* plays string *i*'s note in the selected chord. Fret events are ignored.
+  - Guitar tunings that are standard (or standard shifted) use hand-written open shapes, then movable E- and A-shape barres. Ukulele-family tunings use a table of standard ukulele shapes.
+  - Everything else uses a search over playable fingerings on the instrument's own tuning, for any number of courses: ≤4-fret span (wider where the instrument allows), ≤4 fingers (a barre only when needed), all required tones, open-only strings respected. The bass note must be the root on guitar-like instruments; on 3–4 course and re-entrant instruments (ukulele, mandolin, violin …) it is a preference. If a tuning can't voice a chord fully, the fifth becomes optional, then the hand stretches, then root + fifth.
+- **Key selector:** "only chords in the key" filters the editor to chords whose notes are all in the scale. "מלא פלטה מהסולם" (fill palette from key) fills the 8 slots. Harps, qanun, the pentatonic zithers and the Indian instruments also re-tune to the key.
+- **Chord mode:** strumming physical string *i* plays what that string has in the selected chord (see "String instruments" for how strings map). Fret events are ignored.
 - **Free mode:** pitch per string = tuning + capo + the last fret reported by the neck.
-- Strumming a muted string (`x` in the voicing, or `fret: null`) plays a percussive click.
+- Strumming a muted string (`x` in the voicing, or `fret: null`) plays a percussive click. A physical string with no course behind it is silent.
+
+## String instruments
+
+The instrument registry is data: `src/instruments/registry.ts` (types in `types.ts`). **82 instruments**: guitars (steel, nylon, 12-string, baritone, 7-string, electric clean/overdrive/distortion, lap steel, resonator, synth lead), basses (4/5/6-string, fretless, guitarrón), small plucked (4 ukuleles, banjolele, cavaquinho, charango, two cuatros, tiple, tres, bandurria, 5-string and tenor banjo, mandolin family, three bouzoukis, balalaika, domra), Middle East (Arabic and Turkish oud, saz, tanbur, cümbüş, tar, setar, kemenche, qanun), Asia (sitar, sarod, tanpura, veena, pipa, ruan, sanxian, shamisen, guzheng, koto, gayageum, đàn tranh, erhu), bowed (violin, viola, cello, double bass, hardanger fiddle, nyckelharpa, hurdy-gurdy) and others (lever and pedal harp, lyre/kinnor, kora, kantele, autoharp, zither, mountain and hammered dulcimer, bowed psaltery, Chapman Stick, lute, theorbo, vihuela).
+
+Each entry has: English and Hebrew name, family, region, one or more named tunings (MIDI notes, written as note names), course doubling (`[0]` unison pair, `[12]` octave pair, `[-12]` octave below), fretting (chromatic frets, a diatonic fret map for the mountain dulcimer, fretless, or open strings), chord style, a synth preset, an optional sample set, a General MIDI program (sent as Program Change to MIDI Out) and articulation (technique, tremolo, sympathetic strings, drone).
+
+**Physical strings → courses** (`src/instruments/mapping.ts`):
+- **6 courses:** one to one.
+- **Fewer than 6** (ukulele, mandolin, violin, erhu …): the courses sit in the middle of the 6 physical strings (4 courses → physical strings 2–5). The outer strings either **double** the nearest course (default) or stay **silent** (Settings → "מיתרים פיזיים עודפים").
+- **More than 6** (7-string, theorbo, sitar, Chapman Stick, harps, qanun, zithers): a **register window** of 6 consecutive courses is active. Move it with the ◀ ▶ buttons on the Play screen or the `[` / `]` keys. Fretted instruments move one course per step, open-string instruments about an octave. On open-string instruments, which have no use for frets, the **touch-neck fret zone** also selects the register (fret 1 = lowest window, fret 12 = highest).
+- **Open-string instruments in chord mode** (harps, qanun, zithers, autoharp): the physical strings play the strings that are chord tones, in order, starting at the first root in the window. That is what an autoharp's chord bars do, and it gives a harp-like arpeggio.
+
+**Chord styles:** `chord` (fingering search), `bass` (root + fifth: basses, double bass, guitarrón), `slide` (one straight bar: lap steel, dobro), `arpeggio` (melody instruments, chord tones ascending: erhu, hurdy-gurdy), `drone` (tanpura plays its tuning whatever the chord).
+
+**Re-tuning for the key:** pedal and lever harp, kinnor, kora and qanun snap their strings to the key's scale (levers, pedals, mandals). Guzheng, gayageum, đàn tranh, koto and kantele transpose their pentatonic or modal tuning to the key, or its relative major/minor. Sitar, sarod, tanpura and veena put Sa on the key root.
+
+**Sound:**
+- **Samples** (27 instruments, lazy-loaded per instrument, about 400–700 KB each; see `LICENSES.md`) from FluidR3_GM: guitars, electrics, basses, violin family, harps, sitar, banjos, shamisen, koto, hammered dulcimer. Guitarrón and hardanger fiddle use samples of a related instrument. Until a set is loaded, or if it fails, the synth preset plays.
+- **Synth presets** (`src/instruments/sounds.ts`) for every instrument:
+  - Karplus-Strong variants with body filters.
+  - A bridge **buzz** (sitar jawari, tanpura, shamisen sawari, saz).
+  - **Hammer** excitation (hammered dulcimer).
+  - A **bowed** wavetable model for violin family, fiddles, kemenche, erhu, hurdy-gurdy and psaltery. Strum velocity sets the bow pressure: loudness, brightness and how long the bow stroke lasts.
+- **Course doubling** is rendered into the note: unison strings slightly detuned, octave strings quieter.
+- **Tremolo** (Play → טרמולו, on mandolin, bouzoukis, balalaika, domra, pipa, oud, charango, bandurria, tenor banjo …) re-picks at about 12 Hz. Harder strums tremolo longer.
+- **Sympathetic strings** ring softly when a played note matches them: sitar and sarod taraf (tuned to the key's scale), hardanger understrings, nyckelharpa.
+- The hurdy-gurdy adds a **drone** on the key's root and fifth while you play.
+
+**Uncertain tunings.** These are marked `uncertain` in the registry and show "כוונון משוער" (approximate tuning) in the picker and Settings: cavaquinho (Portuguese), Puerto Rican cuatro, tiple, tres cubano, Turkish oud, saz, tanbur, cümbüş, tar, setar, sitar, sarod, veena, sanxian, koto (octave), gayageum, đàn tranh, kinnor, kora, autoharp, hammered dulcimer, bowed psaltery, Chapman Stick. Notes on approximations are also shown in the picker: oud and other fretless instruments play semitones (no quarter tones), lever harp levers follow any key, and zither accompaniment strings and veena side strings are not modelled.
+
+**Adding an instrument:** add an entry to `INSTRUMENTS` (use `t('E2 A2 …')` for tunings, `scaleRun()` for long diatonic or pentatonic string sets) and pick a `sound` from `SOUNDS`. Optionally add a sample set to `src/instruments/sampleSets.json` and run `python3 tools/samples/fetch_samples.py <set>` (needs ffmpeg). `src/instruments/instruments.test.ts` checks every instrument: tunings, that chord mode only plays chord tones, and sample coverage.
+
+**Firmware:** unchanged. The instrument lives only in the app, and the BLE-MIDI protocol is the same.
 
 ## Audio engine
 
 - `AudioContext({ latencyHint: 'interactive' })` is created and resumed on the first tap or key press.
-- One pre-allocated voice per string (filter + gain). A retrigger fades the previous note out over 12 ms, which works as a clean note-off.
-- **Acoustic / Clean electric / Bass / Distorted** use extended Karplus-Strong: pick position, stretch, fractional-delay all-pass tuning, and velocity-dependent excitation. Buffers are rendered offline and cached (LRU), and the current chord's notes are pre-rendered when it is selected.
-  - Electric adds a lowpass and a light chorus.
-  - Bass plays one octave down.
-  - Distorted adds a tanh waveshaper (4× oversampling) and a cabinet-style filter.
+- One pre-allocated voice per physical string (filter + gain), plus a separate set for auto-strum. A retrigger fades the previous note out over 12 ms (80 ms for bowed notes), which works as a clean note-off.
+- Every note is a single `AudioBufferSourceNode` start:
+  - either a sample, pitched from the nearest file at most 1–2 semitones away, starting after the file's leading silence;
+  - or a buffer rendered offline from the instrument's synth preset (extended Karplus-Strong, or the bowed wavetable model; see "String instruments"). These are cached (LRU), and the current chord's notes are pre-rendered when it is selected.
+- Instrument bus: the preset's body filters, then its chain:
+  - clean;
+  - electric (lowpass and light chorus);
+  - overdrive / distortion (tanh waveshaper with 4× oversampling, and a cabinet filter);
+  - bass;
+  - hurdy (light buzz).
 - **Synth lead:** two detuned saws through a resonant lowpass with a filter envelope.
-- Velocity controls both gain and brightness (the per-voice lowpass cutoff).
+- Velocity controls gain and brightness (the per-voice lowpass cutoff); on bowed instruments it also controls the length of the bow stroke.
 - Master volume and a limiter. The reverb send uses a convolver with a generated impulse response.
-- **MIDI out (optional):** Settings → MIDI Out mirrors notes to a Web MIDI output, with channel = string + 1, so a DAW can record them.
+- **MIDI out (optional):** Settings → MIDI Out mirrors notes to a Web MIDI output, with channel = string + 1, and sends the instrument's General MIDI program, so a DAW can record them.
 
 ## Latency
 
@@ -325,12 +364,14 @@ npm run deploy:firebase           # = vite build --base / && firebase deploy --o
 firmware/  ESP32-S3 BLE-MIDI firmware (Arduino) – see firmware/README.md and firmware/SETUP.md (Hebrew)
 src/
   input/   types, strumDetector (+tests), serial, bleMidi, webMidi, keyboard, midiMapping (+tests), configProtocol (+tests)
+  instruments/  registry (82 instruments as data), mapping (physical strings → courses, chord styles, key re-tuning), shapes, sounds (synth presets), samples (+tests)
   music/   theory: notes, tunings, chords, voicings, keys (+tests)
   song/    chord symbols, chord-sheet parser, advance logic, library, session/metronome, auto-strum patterns + scheduler, Chordonomicon index client (+tests)
 tools/chord_index/  name resolver + static index builder for the Chordonomicon dataset (Python, stdlib)
 tools/hebrew_library/  builder for the built-in Hebrew library (source JSON → public/he/)
-  audio/   engine (voices, instruments, reverb), karplus (+tests), midiOut
+tools/samples/  fetch_samples.py – downloads and re-encodes the instrument samples (public/samples/, see LICENSES.md)
+  audio/   engine (voices, presets, samples, tremolo, sympathetic strings, drone, reverb), karplus, bowed, sampleBank, midiOut
   state/   zustand store (persisted settings)
-  ui/      Connect, Play, Settings (+ Calibration), Debug, SignalMeter, StringsView, ChordDiagram
+  ui/      Connect, Play, Settings (+ Calibration), InstrumentPicker, Debug, SignalMeter, StringsView, ChordDiagram
   controller.ts   glue: transports → music → audio, live meters, log, latency
 ```
