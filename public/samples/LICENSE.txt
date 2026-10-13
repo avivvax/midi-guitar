@@ -1,0 +1,5 @@
+Instrument samples in this folder: FluidR3_GM General MIDI SoundFont by Frank Wen,
+per-note renders from https://github.com/gleitz/midi-js-soundfonts (FluidR3_GM),
+licensed under Creative Commons Attribution 3.0 (https://creativecommons.org/licenses/by/3.0/).
+Modified: subset of notes, mono, re-encoded 64 kb/s, trimmed with fade-out.
+See LICENSES.md in https://github.com/avivvax/midi-guitar for details.
