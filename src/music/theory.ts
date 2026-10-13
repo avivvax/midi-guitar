@@ -96,15 +96,33 @@ function standardVoicing(chord: Chord): Voicing {
   return t.map((o) => (o === null ? null : r + o));
 }
 
+export interface VoicingOptions {
+  /** Largest distance between the lowest and highest fretted note (default 3 = four frets). */
+  span?: number;
+  /** Highest hand position searched (default 9). */
+  maxPos?: number;
+  /** Fret positions available, in semitones above open (diatonic necks); default chromatic. */
+  frets?: number[];
+  /** 'require' (default for 5+ strings): the lowest note must be the root; 'prefer': a bonus only (ukulele, mandolin …). */
+  rootInBass?: 'require' | 'prefer';
+  /** Courses that cannot be fretted: open if a chord tone, else muted. */
+  openOnly?: number[];
+  /** Use the guitar open-shape table when the tuning is (shifted) standard (default true for 6 strings). */
+  guitarShapes?: boolean;
+  /** Treat the fifth as optional (fallback for 3–4 course instruments). */
+  optionalFifth?: boolean;
+}
+
 /**
- * Find a playable voicing for `chord` on a tuning (capo excluded — the capo
- * transposes the shape, like on a real guitar).
+ * Find a playable voicing for `chord` on a tuning of any number of courses
+ * (capo excluded — the capo transposes the shape, like on a real guitar).
  * Search: for each hand position, each string may be muted, open, or fretted
- * on a chord tone within a 4-fret span; score favours full, low, bass-rooted
+ * on a chord tone within the span; score favours full, low, bass-rooted
  * voicings with few fingers and no interior mutes.
  */
-export function findVoicing(chord: Chord, tuning: number[]): Voicing {
-  const shift = standardShift(tuning);
+export function findVoicing(chord: Chord, tuning: number[], opts: VoicingOptions = {}): Voicing {
+  const n = tuning.length;
+  const shift = n === 6 && opts.guitarShapes !== false ? standardShift(tuning) : null;
   if (shift !== null) {
     // Uniformly shifted standard tuning: use the shape for the transposed chord.
     const shapeChord = { root: pc(chord.root - shift), type: chord.type };
@@ -113,25 +131,33 @@ export function findVoicing(chord: Chord, tuning: number[]): Voicing {
     if (v.every((f) => f === null || f >= 0)) return v;
     return v.map((f) => (f === null ? null : f + 12));
   }
+  const span = opts.span ?? 3;
+  const maxPos = opts.maxPos ?? 9;
+  const fretSet = opts.frets ?? Array.from({ length: maxPos + span + 1 }, (_, i) => i);
+  const openOnly = new Set(opts.openOnly ?? []);
+  const rootRule = opts.rootInBass ?? (n >= 5 ? 'require' : 'prefer');
   const def = chordDef(chord.type);
   const tones = new Set(chordPitchClasses(chord));
-  const required = new Set(def.intervals.filter((i) => !def.optional?.includes(i)).map((i) => pc(chord.root + i)));
+  const optional = opts.optionalFifth ? [...(def.optional ?? []), 7] : def.optional;
+  const required = new Set(def.intervals.filter((i) => !optional?.includes(i)).map((i) => pc(chord.root + i)));
   const power = chord.type === '5';
 
   let best: Voicing = tuning.map(() => null);
   let bestScore = -Infinity;
+  const cur: (number | null)[] = new Array(n).fill(null);
 
-  for (let pos = 0; pos <= 9; pos++) {
-    const options: (number | null)[][] = tuning.map((open) => {
+  for (let pos = 0; pos <= maxPos; pos++) {
+    const options: (number | null)[][] = tuning.map((open, s) => {
       const o: (number | null)[] = [null];
       if (tones.has(pc(open))) o.push(0);
-      for (let f = Math.max(1, pos); f <= pos + 3; f++) if (tones.has(pc(open + f))) o.push(f);
+      if (openOnly.has(s)) return o;
+      for (const f of fretSet) if (f >= Math.max(1, pos) && f <= pos + span && tones.has(pc(open + f))) o.push(f);
       return o;
     });
-    const cur: (number | null)[] = new Array(6).fill(null);
-    const rec = (s: number) => {
-      if (s === 6) {
-        const score = scoreVoicing(cur, tuning, chord.root, required, power);
+    // Depth-first over strings, pruning branches whose fretted notes already exceed the span.
+    const rec = (s: number, lo: number, hi: number) => {
+      if (s === n) {
+        const score = scoreVoicing(cur, tuning, chord.root, required, power, rootRule, span, openOnly);
         if (score > bestScore) {
           bestScore = score;
           best = cur.slice();
@@ -139,41 +165,63 @@ export function findVoicing(chord: Chord, tuning: number[]): Voicing {
         return;
       }
       for (const f of options[s]) {
-        cur[s] = f;
-        rec(s + 1);
+        if (f !== null && f > 0) {
+          const l = Math.min(lo, f);
+          const h = Math.max(hi, f);
+          if (h - l > span) continue;
+          cur[s] = f;
+          rec(s + 1, l, h);
+        } else {
+          cur[s] = f;
+          rec(s + 1, lo, hi);
+        }
       }
     };
-    rec(0);
+    rec(0, Infinity, -Infinity);
   }
   return best;
 }
 
-function scoreVoicing(v: Voicing, tuning: number[], root: number, required: Set<number>, power: boolean): number {
+function scoreVoicing(
+  v: Voicing,
+  tuning: number[],
+  root: number,
+  required: Set<number>,
+  power: boolean,
+  rootRule: 'require' | 'prefer',
+  span: number,
+  openOnly: Set<number>,
+): number {
+  const n = v.length;
   const played = v.map((f, i) => (f === null ? null : tuning[i] + f));
-  const idx = played.map((n, i) => (n === null ? -1 : i)).filter((i) => i >= 0);
-  if (idx.length < 2) return -Infinity;
-  const lowest = played[idx[0]]!;
-  if (pc(lowest) !== root) return -Infinity;
+  const idx = played.map((p, i) => (p === null ? -1 : i)).filter((i) => i >= 0);
+  if (idx.length < Math.min(2, n)) return -Infinity;
+  const lowestNote = Math.min(...idx.map((i) => played[i]!));
+  const rootLow = pc(lowestNote) === root;
+  if (!rootLow && rootRule === 'require') return -Infinity;
   const present = new Set(idx.map((i) => pc(played[i]!)));
   for (const r of required) if (!present.has(r)) return -Infinity;
 
   const fretted = v.filter((f): f is number => f !== null && f > 0);
   const minF = fretted.length ? Math.min(...fretted) : 0;
   const maxF = fretted.length ? Math.max(...fretted) : 0;
-  if (maxF - minF > 3) return -Infinity;
-  // Fingers: a barre at minF counts as one finger.
-  const atMin = fretted.filter((f) => f === minF).length;
-  const fingers = fretted.length - (atMin > 1 ? atMin - 1 : 0);
-  if (fingers > 4) return -Infinity;
-  if (atMin > 1) {
-    // A barre covers every string from its first one upward: no open strings above it.
+  if (maxF - minF > span) return -Infinity;
+  // Fingers: one per fretted string; with more than four, a barre at minF must cover the rest
+  // (a barre covers every string from its first one upward, so no open strings above it).
+  let fingers = fretted.length;
+  if (fingers > 4) {
+    const atMin = fretted.filter((f) => f === minF).length;
     const barreStart = v.findIndex((f) => f === minF);
-    for (let i = barreStart + 1; i < 6; i++) if (v[i] === 0) return -Infinity;
+    if (atMin < 2 || v.some((f, i) => i > barreStart && f === 0)) return -Infinity;
+    fingers -= atMin - 1;
+    if (fingers > 4) return -Infinity;
   }
 
+  // Interior mutes only count between fretted-capable strings (open-only drones may be skipped freely).
   const first = idx[0];
   const last = idx[idx.length - 1];
-  const interiorMutes = last - first + 1 - idx.length;
+  let interiorMutes = 0;
+  for (let i = first + 1; i < last; i++) if (v[i] === null && !openOnly.has(i)) interiorMutes++;
   const opens = v.filter((f) => f === 0).length;
 
   let score = 0;
@@ -183,8 +231,9 @@ function scoreVoicing(v: Voicing, tuning: number[], root: number, required: Set<
   } else {
     score += idx.length * 10;
     // Prefer voicings that reach the top string.
-    score -= (5 - last) * 6;
+    score -= (n - 1 - last) * 6;
   }
+  if (rootRule === 'prefer' && rootLow) score += 6;
   score -= interiorMutes * 25;
   score -= minF * 2;
   score += opens * 2;

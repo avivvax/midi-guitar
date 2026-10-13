@@ -17,7 +17,8 @@ describe('voicings', () => {
           const v = findVoicing({ root, type }, t.notes);
           const notes = v.map((f, i) => (f === null ? null : t.notes[i] + f)).filter((n): n is number => n !== null);
           expect(notes.length, `${t.id} ${root}${type}`).toBeGreaterThanOrEqual(2);
-          expect(pc(notes[0])).toBe(root);
+          // The lowest sounding note (not necessarily the lowest string) is the root.
+          expect(pc(Math.min(...notes)), `${t.id} ${root}${type} ${voicingToString(v)}`).toBe(root);
           const tones = new Set(chordPitchClasses({ root, type }));
           for (const n of notes) expect(tones.has(pc(n))).toBe(true);
         }
