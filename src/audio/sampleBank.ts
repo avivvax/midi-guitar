@@ -54,7 +54,13 @@ export class SampleBank {
     const notes = sampleNotes(set);
     const out = await Promise.all(
       notes.map(async (midi) => {
-        const res = await fetch(`${this.baseUrl}samples/${set.id}/${midi}.mp3`);
+        const url = `${this.baseUrl}samples/${set.id}/${midi}.mp3`;
+        let res = await fetch(url).catch(() => null);
+        if (!res?.ok) {
+          // One retry: static hosts occasionally answer 5xx under a burst of requests.
+          await new Promise((r) => setTimeout(r, 600));
+          res = await fetch(url);
+        }
         if (!res.ok) throw new Error(`${res.status} ${set.id}/${midi}`);
         const buffer = await this.ctx.decodeAudioData(await res.arrayBuffer());
         return { midi, buffer, onset: findOnset(buffer) };
