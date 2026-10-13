@@ -21,3 +21,6 @@
 @media (max-width: 420px) {
   .editor { grid-template-columns: 1fr; }
 }
+.note { color: var(--muted); font-size: 0.85rem; margin: 0; }
+.warn { color: var(--accent); font-size: 0.85rem; margin: 0; }
+.label { align-self: center; color: var(--muted); }

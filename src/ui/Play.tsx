@@ -1,25 +1,29 @@
-import { INSTRUMENTS, type InstrumentId } from '../audio/engine';
-import { live } from '../controller';
-import { chordName, noteName, pc, voicingToString } from '../music/theory';
-import { currentChord, tuningNotes, useStore, voicingFor } from '../state/store';
+import { live, shiftRegister } from '../controller';
+import { chordNotes, freeNote, registerRange, type PhysNote } from '../instruments/mapping';
+import { chordName, noteName, noteNameOct, pc, voicingToString } from '../music/theory';
+import { currentChord, playSetup, useStore } from '../state/store';
 import ChordDiagram from './ChordDiagram';
+import InstrumentButton from './InstrumentButton';
+import { physLabel } from './instrumentText';
 import StringsView from './StringsView';
 import { useTicker } from './useRaf';
 import styles from './Play.module.css';
 
 export default function Play() {
   const s = useStore();
-  const tuning = tuningNotes(s);
+  const setup = playSetup(s);
+  const inst = setup.inst;
   const chord = currentChord(s);
-  const voicing = voicingFor(chord, tuning);
   const chordMode = s.mode === 'chord';
+  const chordRes = chordNotes(setup, chord);
   // Free mode shows live frets from the neck, so refresh a few times a second.
   useTicker(chordMode ? 1 : 8);
 
-  const labels = tuning.map((n, i) => {
-    const f = chordMode ? voicing[i] : live.frets[i];
-    return f === null ? '×' : noteName(n + s.capo + f);
-  });
+  const results = chordMode ? chordRes.physical : setup.physical.map((_, p) => freeNote(setup, p, live.frets[p]));
+  const labels = results.map(physLabel);
+  const range = registerRange(inst, setup.tuning);
+  const winNotes = setup.window.map((c) => setup.tuning[c] + setup.capo);
+  const sounding = chordRes.physical.filter((r): r is PhysNote => r !== null && r !== 'mute');
 
   return (
     <div className={styles.wrap}>
@@ -29,7 +33,7 @@ export default function Play() {
             <>
               <div className={`${styles.chord} ltr`}>{chordName(chord)}</div>
               <div className={`${styles.sub} ltr`}>
-                {voicingToString(voicing)}
+                {chordRes.voicing ? voicingToString(chordRes.voicing) : [...new Set(sounding.map((n) => noteName(n.midi)))].join(' ')}
                 {s.capo > 0 && ` · sounds ${chordName({ ...chord, root: pc(chord.root + s.capo) })}`}
               </div>
             </>
@@ -40,7 +44,7 @@ export default function Play() {
             </>
           )}
         </div>
-        {chordMode && <ChordDiagram voicing={voicing} size={84} />}
+        {chordMode && chordRes.voicing && <ChordDiagram voicing={chordRes.voicing} size={84} />}
       </div>
 
       <div className={styles.controls}>
@@ -63,18 +67,29 @@ export default function Play() {
             +
           </button>
         </div>
-        <select
-          aria-label="כלי"
-          className={`${styles.inst} ltr`}
-          value={s.instrument}
-          onChange={(e) => s.set({ instrument: e.target.value as InstrumentId })}
-        >
-          {INSTRUMENTS.map((i) => (
-            <option key={i.id} value={i.id}>
-              {i.name}
-            </option>
-          ))}
-        </select>
+        <InstrumentButton className={styles.inst} />
+        {range.max > 0 && (
+          <div className={`${styles.capo} ${styles.wide} ltr`} role="group" aria-label="רגיסטר">
+            <button aria-label="register down" onClick={() => shiftRegister(-1)} disabled={setup.register <= 0}>
+              ◀
+            </button>
+            <span>
+              רגיסטר{' '}
+              <b className="ltr">
+                {noteNameOct(Math.min(...winNotes))}–{noteNameOct(Math.max(...winNotes))}
+              </b>
+            </span>
+            <button aria-label="register up" onClick={() => shiftRegister(1)} disabled={setup.register >= range.max}>
+              ▶
+            </button>
+          </div>
+        )}
+        {inst.articulation.tremolo && (
+          <label className={`${styles.toggle} ${styles.wide}`}>
+            <input type="checkbox" checked={s.tremolo} onChange={(e) => s.set({ tremolo: e.target.checked })} />
+            טרמולו
+          </label>
+        )}
       </div>
 
       <StringsView labels={labels} />

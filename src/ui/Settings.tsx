@@ -3,21 +3,29 @@ import { getMidiOut } from '../controller';
 import {
   CHORD_TYPES,
   NOTE_NAMES,
-  TUNINGS,
   chordName,
+  noteName,
   isDiatonic,
   noteNameOct,
   voicingToString,
   type ChordType,
 } from '../music/theory';
-import { tuningNotes, useStore, voicingFor } from '../state/store';
+import { chordNotes, rawTuning, tuningDef, type PhysNote } from '../instruments/mapping';
+import { playSetup, useStore } from '../state/store';
 import Calibration from './Calibration';
+import InstrumentButton from './InstrumentButton';
 import ChordDiagram from './ChordDiagram';
 import styles from './Settings.module.css';
 
 export default function Settings() {
   const s = useStore();
-  const tuning = tuningNotes(s);
+  const setup = playSetup(s);
+  const inst = setup.inst;
+  const tuningId = s.tunings[inst.id] === 'custom' && s.customTunings[inst.id] ? 'custom' : tuningDef(inst, s.tunings[inst.id]).id;
+  const tuning = rawTuning(inst, s.tunings[inst.id], s.customTunings[inst.id]);
+  const uncertain = tuningId === 'custom' ? undefined : tuningDef(inst, tuningId).uncertain;
+  const followsKey = inst.retune !== undefined || inst.tonic !== undefined;
+  const editable = tuning.length <= 8;
   const [slot, setSlot] = useState(s.selectedSlot);
   const [diatonicOnly, setDiatonicOnly] = useState(true);
   const [midiOuts, setMidiOuts] = useState<string[] | null>(null);
@@ -39,11 +47,13 @@ export default function Settings() {
   }, []);
 
   const setTuningNote = (i: number, delta: number) => {
-    const base = s.tuningId === 'custom' ? s.customTuning : tuning;
-    const next = base.slice();
-    next[i] = Math.max(28, Math.min(76, next[i] + delta));
-    s.set({ tuningId: 'custom', customTuning: next });
+    const next = tuning.slice();
+    next[i] = Math.max(12, Math.min(108, next[i] + delta));
+    s.set({ tunings: { ...s.tunings, [inst.id]: 'custom' }, customTunings: { ...s.customTunings, [inst.id]: next } });
   };
+
+  const preview = chordNotes(setup, editing);
+  const previewNotes = [...new Set(preview.physical.filter((r): r is PhysNote => r !== null && r !== 'mute').map((n) => noteName(n.midi)))];
 
   if (calibrating) return <Calibration onBack={() => setCalibrating(false)} />;
 
@@ -51,28 +61,51 @@ export default function Settings() {
     <div className={styles.wrap}>
       <button onClick={() => setCalibrating(true)}>כיול מיתרים ›</button>
 
-      <h2>כיוון</h2>
-      <select className="ltr" value={s.tuningId} onChange={(e) => s.set({ tuningId: e.target.value })}>
-        {TUNINGS.map((t) => (
+      <h2>כלי וכיוון</h2>
+      <InstrumentButton />
+      {inst.note && <p className={styles.note}>{inst.note}</p>}
+      <select
+        className="ltr"
+        aria-label="כיוון"
+        value={tuningId}
+        onChange={(e) => s.set({ tunings: { ...s.tunings, [inst.id]: e.target.value } })}
+      >
+        {inst.tunings.map((t) => (
           <option key={t.id} value={t.id}>
             {t.name}
+            {t.uncertain ? ' (?)' : ''}
           </option>
         ))}
-        <option value="custom">Custom</option>
+        {editable && <option value="custom">Custom</option>}
       </select>
-      <div className={`${styles.tuning} ltr`}>
-        {tuning.map((n, i) => (
-          <div key={i} className={styles.tString}>
-            <button aria-label={`string ${i + 1} up`} onClick={() => setTuningNote(i, 1)}>
-              ▲
-            </button>
-            <b>{noteNameOct(n)}</b>
-            <button aria-label={`string ${i + 1} down`} onClick={() => setTuningNote(i, -1)}>
-              ▼
-            </button>
-          </div>
-        ))}
-      </div>
+      {uncertain && <p className={styles.warn}>⚠ כוונון משוער: <span className="ltr">{uncertain}</span></p>}
+      {followsKey && <p className={styles.note}>הכיוון של הכלי הזה עוקב אחרי הסולם שנבחר למטה.</p>}
+      {editable ? (
+        <div className={`${styles.tuning} ltr`} style={{ gridTemplateColumns: `repeat(${tuning.length}, 1fr)` }}>
+          {tuning.map((n, i) => (
+            <div key={i} className={styles.tString}>
+              <button aria-label={`string ${i + 1} up`} onClick={() => setTuningNote(i, 1)}>
+                ▲
+              </button>
+              <b>{noteNameOct(n)}</b>
+              <button aria-label={`string ${i + 1} down`} onClick={() => setTuningNote(i, -1)}>
+                ▼
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className={`${styles.note} ltr`}>{tuning.map(noteNameOct).join(' ')}</p>
+      )}
+      {tuning.length < 6 && (
+        <label className={styles.row}>
+          <span className={styles.label}>מיתרים פיזיים עודפים</span>
+          <select value={s.extraStrings} onChange={(e) => s.set({ extraStrings: e.target.value as 'double' | 'mute' })}>
+            <option value="double">מכפילים את המיתר הקרוב</option>
+            <option value="mute">שקטים</option>
+          </select>
+        </label>
+      )}
 
       <h2>סולם</h2>
       <div className={styles.row}>
@@ -149,8 +182,14 @@ export default function Settings() {
         </div>
         <div className={styles.preview}>
           <b className="ltr">{chordName(editing)}</b>
-          <ChordDiagram voicing={voicingFor(editing, tuning)} size={90} />
-          <span className="ltr">{voicingToString(voicingFor(editing, tuning))}</span>
+          {preview.voicing ? (
+            <>
+              <ChordDiagram voicing={preview.voicing} size={90} />
+              <span className="ltr">{voicingToString(preview.voicing)}</span>
+            </>
+          ) : (
+            <span className="ltr">{previewNotes.join(' ')}</span>
+          )}
         </div>
       </div>
 
@@ -163,6 +202,10 @@ export default function Settings() {
         <span>הד (Reverb)</span>
         <input type="range" min={0} max={1} step={0.01} value={s.reverb} onChange={(e) => s.set({ reverb: Number(e.target.value) })} />
       </label>
+
+      <p className={styles.note}>
+        דגימות: <span className="ltr">FluidR3_GM (Frank Wen), CC BY 3.0</span> – לכלים שמסומנים „דגימות”. שאר הכלים מסונתזים.
+      </p>
 
       <h2>MIDI Out (ל-DAW)</h2>
       {midiOuts === null ? (

@@ -1,4 +1,4 @@
-import { AudioEngine } from './audio/engine';
+import { AudioEngine, type EngineInstrument } from './audio/engine';
 import { MidiOut } from './audio/midiOut';
 import { BleMidiInput } from './input/bleMidi';
 import { CC, applyDeviceCC, emptyDeviceConfig } from './input/configProtocol';
@@ -12,7 +12,9 @@ import { symbolToChord } from './song/chordSymbol';
 import { scheduleWindow, startCursor, type AutoCursor, type StateChange } from './song/autoStrum';
 import { Metronome, displaySymbol, findSong, songActive, songChordForHit, songSettings, stepsOf } from './song/session';
 import { patternById } from './song/strumPattern';
-import { currentChord, tuningNotes, useStore, voicingFor } from './state/store';
+import { chordNotes, courseExtras, freeNote, registerRange, type PhysResult } from './instruments/mapping';
+import { getSampleSet } from './instruments/samples';
+import { currentChord, playSetup, useStore, type State } from './state/store';
 
 /**
  * Glue between transports, music logic and audio. High-rate data (signals,
@@ -64,7 +66,8 @@ export async function ensureAudio(): Promise<void> {
   if (!engine) {
     engine = new AudioEngine();
     const s = useStore.getState();
-    engine.setInstrument(s.instrument);
+    engine.onSampleStatus = (id, status) => useStore.getState().set({ sampleStatus: { ...useStore.getState().sampleStatus, [id]: status } });
+    engine.setInstrument(engineInstrument(s));
     engine.setVolume(s.volume);
     engine.setReverb(s.reverb);
     warmCurrentChord();
@@ -73,49 +76,98 @@ export async function ensureAudio(): Promise<void> {
   if (!useStore.getState().audioReady) useStore.getState().set({ audioReady: true });
 }
 
-/** Pre-render the notes about to be played: palette chord, or current + next song chord. */
-function warmCurrentChord() {
-  if (!engine) return;
-  const s = useStore.getState();
-  const tuning = tuningNotes(s);
+/** What the audio engine needs for the selected instrument (sound, samples, sympathetic strings, drone, tremolo). */
+function engineInstrument(s: State): EngineInstrument {
+  const setup = playSetup(s);
+  const inst = setup.inst;
+  return {
+    id: inst.id,
+    soundId: inst.sound,
+    samples: getSampleSet(inst.samples),
+    sympathetic: setup.sympathetic,
+    drone: setup.drone,
+    droneLevel: inst.articulation.drone?.level ?? 0,
+    tremolo: s.tremolo && !!inst.articulation.tremolo,
+  };
+}
+
+/** Chords the player is about to strum: the palette chord, or the current + next song chord. */
+function upcomingChords(s: State) {
   const song = songActive(s);
-  let chords = [currentChord(s)];
-  if (song) {
-    const steps = stepsOf(song);
-    const t = songSettings(s, song).transpose;
-    chords = [steps[s.player.pos], steps[s.player.pos + 1]]
-      .filter(Boolean)
-      .map((st) => symbolToChord(displaySymbol(st.chord, t)))
-      .filter((c): c is NonNullable<typeof c> => c !== null);
+  if (!song) return [currentChord(s)];
+  const steps = stepsOf(song);
+  const t = songSettings(s, song).transpose;
+  return [steps[s.player.pos], steps[s.player.pos + 1]]
+    .filter(Boolean)
+    .map((st) => symbolToChord(displaySymbol(st.chord, t)))
+    .filter((c): c is NonNullable<typeof c> => c !== null);
+}
+
+/** Pre-compute fingerings and pre-render the notes about to be played. */
+function warmCurrentChord() {
+  const s = useStore.getState();
+  const setup = playSetup(s);
+  // Fingering searches are cached; doing them here keeps them off the strum path.
+  const notes = upcomingChords(s).flatMap((c) => chordNotes(setup, c).physical);
+  if (!engine) return;
+  const uniq = new Map<string, { midi: number; extras: number[] }>();
+  for (const n of notes) {
+    if (n === null || n === 'mute') continue;
+    const extras = courseExtras(setup.inst, n.course);
+    uniq.set(`${n.midi}:${extras.join(',')}`, { midi: n.midi, extras });
   }
-  const midis = chords.flatMap((c) =>
-    voicingFor(c, tuning).flatMap((f, i) => (f === null ? [] : [tuning[i] + s.capo + f])),
-  );
-  engine.warm([...new Set(midis)]);
+  engine.warm([...uniq.values()]);
 }
 
 useStore.subscribe((s, prev) => {
+  const instChanged =
+    s.instrument !== prev.instrument ||
+    s.tunings !== prev.tunings ||
+    s.customTunings !== prev.customTunings ||
+    s.key !== prev.key ||
+    s.tremolo !== prev.tremolo;
   if (engine) {
-    if (s.instrument !== prev.instrument) {
-      engine.setInstrument(s.instrument);
-      warmCurrentChord();
-    }
+    if (instChanged) engine.setInstrument(engineInstrument(s));
     if (s.volume !== prev.volume) engine.setVolume(s.volume);
     if (s.reverb !== prev.reverb) engine.setReverb(s.reverb);
-    if (
-      s.selectedSlot !== prev.selectedSlot ||
-      s.palette !== prev.palette ||
-      s.capo !== prev.capo ||
-      s.tuningId !== prev.tuningId ||
-      s.player.pos !== prev.player.pos ||
-      s.songId !== prev.songId ||
-      s.songView !== prev.songView ||
-      s.songPrefs !== prev.songPrefs
-    )
-      warmCurrentChord();
   }
+  if (s.instrument !== prev.instrument) midiOut.program(playSetup(s).inst.gm);
+  if (
+    instChanged ||
+    s.selectedSlot !== prev.selectedSlot ||
+    s.palette !== prev.palette ||
+    s.capo !== prev.capo ||
+    s.registers !== prev.registers ||
+    s.extraStrings !== prev.extraStrings ||
+    s.player.pos !== prev.player.pos ||
+    s.songId !== prev.songId ||
+    s.songView !== prev.songView ||
+    s.songPrefs !== prev.songPrefs
+  )
+    warmCurrentChord();
   if (s.detector !== prev.detector && input instanceof SerialInput) input.detector.setParams(s.detector);
-  if (s.midiOutName !== prev.midiOutName) midiOut.select(s.midiOutName);
+  if (s.midiOutName !== prev.midiOutName) {
+    midiOut.select(s.midiOutName);
+    midiOut.program(playSetup(s).inst.gm);
+  }
+});
+
+/** Move the register window of an instrument with more than 6 courses (dir = −1 lower, +1 higher). */
+export function shiftRegister(dir: number): void {
+  const s = useStore.getState();
+  const setup = playSetup(s);
+  const r = registerRange(setup.inst, setup.tuning);
+  if (!r.max) return;
+  const next = Math.max(0, Math.min(r.max, setup.register + dir * r.step));
+  if (next !== setup.register) s.set({ registers: { ...s.registers, [s.instrument]: next } });
+}
+
+window.addEventListener('keydown', (e) => {
+  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  const target = e.target as HTMLElement | null;
+  if (target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA')) return;
+  if (e.code === 'BracketLeft') shiftRegister(-1);
+  else if (e.code === 'BracketRight') shiftRegister(1);
 });
 
 function handleFrame(r: DetectorResult, values: number[]) {
@@ -141,6 +193,15 @@ export function handleEvent(e: GuitarEvent): void {
   const s = useStore.getState();
   if (e.type === 'fret') {
     live.frets[e.string] = e.fret;
+    const setup = playSetup(s);
+    if (setup.inst.fretting.kind === 'open' && e.fret) {
+      // Open-string instruments have no frets: the touch-neck position picks the register (fret 1 = lowest).
+      const r = registerRange(setup.inst, setup.tuning);
+      if (r.max) {
+        const reg = Math.round(((Math.min(12, e.fret) - 1) / 11) * r.max);
+        if (reg !== setup.register) s.set({ registers: { ...s.registers, [s.instrument]: reg } });
+      }
+    }
     if (e.fret === null) {
       // Explicit mute (CC 20 = 127) is the only thing that stops a ringing string;
       // Note Off is ignored so plucked strings sustain until they decay or are re-plucked.
@@ -157,10 +218,11 @@ export function handleEvent(e: GuitarEvent): void {
   }
   // Strum. In the song player the song decides the chord (and may advance on this strum).
   const string = e.string;
-  const tuning = tuningNotes(s);
+  const setup = playSetup(s);
   const songChord = songChordForHit(e.t ?? performance.now());
   const chord = songChord ?? currentChord(s);
-  const fret = songChord || s.mode === 'chord' ? voicingFor(chord, tuning)[string] : live.frets[string];
+  const res: PhysResult =
+    songChord || s.mode === 'chord' ? chordNotes(setup, chord).physical[string] : freeNote(setup, string, live.frets[string]);
   const now = performance.now();
   live.strumAt[string] = now;
   live.strumVel[string] = e.velocity;
@@ -171,17 +233,19 @@ export function handleEvent(e: GuitarEvent): void {
     return;
   }
   let label: string;
-  if (fret === null) {
+  if (res === null) {
+    // No course on this physical string (fewer courses than strings, 'mute' extra strings, or not a chord tone on a slide).
+    label = 'no string';
+  } else if (res === 'mute') {
     engine.click(string, e.velocity);
     midiOut.noteOff(string);
     live.notes[string] = null;
     label = 'mute';
   } else {
-    const midi = tuning[string] + s.capo + fret;
-    engine.pluck(string, midi, e.velocity);
-    midiOut.noteOn(string, midi, e.velocity);
-    live.notes[string] = noteNameOct(midi);
-    label = noteNameOct(midi);
+    engine.pluck(string, res.midi, e.velocity, undefined, 'live', courseExtras(setup.inst, res.course));
+    midiOut.noteOn(string, res.midi, e.velocity);
+    live.notes[string] = noteNameOct(res.midi);
+    label = noteNameOct(res.midi);
   }
   const done = performance.now();
   if (e.t !== undefined) {
@@ -416,21 +480,31 @@ class AutoPlayer {
     }
 
     const cfg = songSettings(s, song);
-    const tuning = tuningNotes(s);
+    const setup = playSetup(s);
     const steps = stepsOf(song);
-    const midisFor = (pos: number) => {
+    const noteAt = (pos: number) => {
       const st = steps[pos];
       const chord = st ? symbolToChord(displaySymbol(st.chord, cfg.transpose)) : null;
-      if (!chord) return [null, null, null, null, null, null];
-      return voicingFor(chord, tuning).map((f, i) => (f === null ? null : tuning[i] + s.capo + f));
+      return chord ? chordNotes(setup, chord).physical : null;
     };
+    // Remember which course each (string, note) came from, for the course's doubling strings.
+    const courseOf = new Map<string, number>();
+    const midisFor = (pos: number) =>
+      (noteAt(pos) ?? []).map((n, string) => {
+        if (n === null || n === 'mute') return null;
+        courseOf.set(`${string}:${n.midi}`, n.course);
+        return n.midi;
+      });
     const r = scheduleWindow(
       this.cursor,
       { steps, tempo: cfg.tempo, pattern: patternById(s.strumPattern), midisFor },
       now + LOOKAHEAD,
     );
     this.cursor = r.cursor;
-    for (const n of r.notes) this.engine.pluck(n.string, n.midi, n.velocity, n.when, 'auto');
+    for (const n of r.notes) {
+      const course = courseOf.get(`${n.string}:${n.midi}`);
+      this.engine.pluck(n.string, n.midi, n.velocity, n.when, 'auto', course === undefined ? [] : courseExtras(setup.inst, course));
+    }
     this.pending.push(...r.changes);
 
     // Show each beat / chord change when it actually sounds.

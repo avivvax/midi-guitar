@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
-import { INSTRUMENTS, type InstrumentId } from '../audio/engine';
 import { ensureAudio, setAutoMode, setSongPlaying, startAutoPlay, stopAutoPlay } from '../controller';
 import { PATTERNS } from '../song/strumPattern';
 import { symbolToChord, transposeKey } from '../song/chordSymbol';
 import { next, prev, restart, jumpToSection, type AdvanceMode } from '../song/player';
 import { advanceModeFor, displaySymbol, findSong, songSettings, stepsOf } from '../song/session';
-import { tuningNotes, useStore, voicingFor } from '../state/store';
+import { chordNotes } from '../instruments/mapping';
+import { playSetup, useStore } from '../state/store';
+import InstrumentButton from './InstrumentButton';
 import ChordDiagram from './ChordDiagram';
 import styles from './Songs.module.css';
 
@@ -49,6 +50,7 @@ export default function SongPlayer() {
   const curSym = displaySymbol(cur.chord, cfg.transpose);
   const nextSym = nxt ? displaySymbol(nxt.chord, cfg.transpose) : null;
   const curChord = symbolToChord(curSym);
+  const curVoicing = curChord ? chordNotes(playSetup(s), curChord).voicing : null;
   const fav = s.favorites.includes(song.id);
   const mode = advanceModeFor(s, song);
   const isDataset = song.source === 'chordonomicon';
@@ -119,7 +121,7 @@ export default function SongPlayer() {
           <div className={`${styles.bigChord} ltr`} data-testid="current-chord">
             {curSym}
           </div>
-          {curChord && <ChordDiagram voicing={voicingFor(curChord, tuningNotes(s))} size={78} />}
+          {curVoicing && <ChordDiagram voicing={curVoicing} size={78} />}
         </div>
         {dots > 0 && (
           <div className={`${styles.dots} ltr`} aria-label={`${filled}/${dots}`}>
@@ -160,18 +162,7 @@ export default function SongPlayer() {
         </div>
         <div className={styles.ctlRow}>
           <Stepper label="BPM" value={cfg.tempo} onChange={(v) => setPrefs({ tempo: Math.max(40, Math.min(220, v)) })} step={2} />
-          <select
-            aria-label="כלי"
-            className={`${styles.instSelect} ltr`}
-            value={s.instrument}
-            onChange={(e) => s.set({ instrument: e.target.value as InstrumentId })}
-          >
-            {INSTRUMENTS.map((i) => (
-              <option key={i.id} value={i.id}>
-                {i.name}
-              </option>
-            ))}
-          </select>
+<InstrumentButton className={styles.instSelect} />
         </div>
         {auto === 'along' && <p className={styles.note}>הליווי מתנגן בשקט – הפריטות שלך מתנגנות מעליו.</p>}
       </div>

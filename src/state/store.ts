@@ -1,10 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { InstrumentId } from '../audio/engine';
 import { DEFAULT_DETECTOR_PARAMS, type DetectorParams } from '../input/strumDetector';
 import type { DeviceConfig } from '../input/configProtocol';
 import type { TransportId } from '../input/types';
-import { TUNINGS, defaultPalette, findVoicing, type Chord, type Key, type Voicing } from '../music/theory';
+import { makeSetup, type ExtraStrings, type PlaySetup } from '../instruments/mapping';
+import { DEFAULT_INSTRUMENT, getInstrument } from '../instruments/registry';
+import { defaultPalette, type Chord, type Key } from '../music/theory';
 import { initialState as initialPlayer, type AdvanceMode, type PlayerState } from '../song/player';
 import type { PatternId } from '../song/strumPattern';
 import type { Song } from '../song/types';
@@ -26,14 +27,22 @@ export const RECENT_DATASET_SONGS = 40;
 export type ConnStatus = 'idle' | 'connecting' | 'connected' | 'error';
 
 export interface Settings {
-  tuningId: string;
-  customTuning: number[];
+  /** Selected tuning per instrument id ('custom' = customTunings[id]); missing = the instrument's standard tuning. */
+  tunings: Record<string, string>;
+  customTunings: Record<string, number[]>;
+  /** Register window start per instrument (instruments with more than 6 courses). */
+  registers: Record<string, number>;
+  /** Physical strings beyond a 1–5 course instrument: double the edge course or stay silent. */
+  extraStrings: ExtraStrings;
+  /** Tremolo on instruments that support it (mandolin, bouzouki, balalaika …). */
+  tremolo: boolean;
   capo: number;
   key: Key;
   palette: Chord[];
   selectedSlot: number;
   mode: PlayMode;
-  instrument: InstrumentId;
+  /** Instrument id from the registry (src/instruments/registry.ts). */
+  instrument: string;
   volume: number;
   reverb: number;
   detector: DetectorParams;
@@ -66,6 +75,8 @@ export interface Runtime {
   autoPlay: null | 'demo' | 'along';
   /** Calibration values reported by the guitar over BLE (null until its settings dump arrives). */
   deviceConfig: DeviceConfig | null;
+  /** Loading state of each sample set ('loading' | 'ready' | 'error'). */
+  sampleStatus: Record<string, string>;
 }
 
 export interface Actions {
@@ -89,14 +100,17 @@ const defaultKey: Key = { root: 7, mode: 'major' };
 export const useStore = create<State>()(
   persist(
     (set) => ({
-      tuningId: 'standard',
-      customTuning: TUNINGS[0].notes.slice(),
+      tunings: {},
+      customTunings: {},
+      registers: {},
+      extraStrings: 'double',
+      tremolo: false,
       capo: 0,
       key: defaultKey,
       palette: defaultPalette(defaultKey),
       selectedSlot: 0,
       mode: 'chord',
-      instrument: 'acoustic',
+      instrument: DEFAULT_INSTRUMENT,
       volume: 0.8,
       reverb: 0.2,
       detector: DEFAULT_DETECTOR_PARAMS,
@@ -122,6 +136,7 @@ export const useStore = create<State>()(
       playing: false,
       autoPlay: null,
       deviceConfig: null,
+      sampleStatus: {},
 
       set: (p) => set(p),
       setDetector: (p) => set((s) => ({ detector: { ...s.detector, ...p } })),
@@ -158,10 +173,14 @@ export const useStore = create<State>()(
     }),
     {
       name: 'midi-guitar-settings',
-      version: 1,
+      version: 2,
+      migrate: (persisted, version) => (version < 2 ? migrateV1(persisted as Record<string, unknown>) : persisted) as Settings,
       partialize: (s): Settings => ({
-        tuningId: s.tuningId,
-        customTuning: s.customTuning,
+        tunings: s.tunings,
+        customTunings: s.customTunings,
+        registers: s.registers,
+        extraStrings: s.extraStrings,
+        tremolo: s.tremolo,
         capo: s.capo,
         key: s.key,
         palette: s.palette,
@@ -189,20 +208,39 @@ export const useStore = create<State>()(
   ),
 );
 
-export function tuningNotes(s: Pick<Settings, 'tuningId' | 'customTuning'>): number[] {
-  if (s.tuningId === 'custom') return s.customTuning;
-  return (TUNINGS.find((t) => t.id === s.tuningId) ?? TUNINGS[0]).notes;
+/** Settings v1 (5 sounds on a guitar, one global tuning) → v2 (instrument registry). */
+export function migrateV1(p: Record<string, unknown>): Partial<Settings> {
+  const map: Record<string, string> = {
+    acoustic: 'guitar-steel',
+    electric: 'electric-clean',
+    distorted: 'electric-distortion',
+    bass: 'bass-4',
+    synth: 'synth-lead',
+  };
+  const { tuningId, customTuning, instrument, ...rest } = p as { tuningId?: string; customTuning?: number[]; instrument?: string };
+  const inst = map[instrument ?? ''] ?? DEFAULT_INSTRUMENT;
+  const out: Partial<Settings> = { ...(rest as Partial<Settings>), instrument: inst, tunings: {}, customTunings: {} };
+  // The old tuning applied to the guitar; keep it for the guitar-family instrument that replaces the old sound.
+  if (getInstrument(inst).shapes === 'guitar' && tuningId) {
+    out.tunings = { [inst]: tuningId };
+    if (tuningId === 'custom' && customTuning?.length === 6) out.customTunings = { [inst]: customTuning };
+  }
+  return out;
 }
 
-const voicingCache = new Map<string, Voicing>();
-export function voicingFor(chord: Chord, tuning: number[]): Voicing {
-  const k = `${chord.root}:${chord.type}:${tuning.join(',')}`;
-  let v = voicingCache.get(k);
-  if (!v) {
-    v = findVoicing(chord, tuning);
-    voicingCache.set(k, v);
-  }
-  return v;
+/** Everything that decides what a physical string plays, for the current settings. Cached. */
+export function playSetup(
+  s: Pick<Settings, 'instrument' | 'tunings' | 'customTunings' | 'registers' | 'extraStrings' | 'capo' | 'key'>,
+): PlaySetup {
+  return makeSetup({
+    instrumentId: s.instrument,
+    tuningId: s.tunings[s.instrument],
+    customTuning: s.customTunings[s.instrument],
+    key: s.key,
+    capo: s.capo,
+    register: s.registers[s.instrument] ?? null,
+    extraStrings: s.extraStrings,
+  });
 }
 
 export function currentChord(s: Pick<Settings, 'palette' | 'selectedSlot'>): Chord {

@@ -3,6 +3,7 @@ export class MidiOut {
   private access: MIDIAccess | null = null;
   private output: MIDIOutput | null = null;
   private sounding: (number | null)[] = new Array(6).fill(null);
+  private gmProgram: number | null = null;
 
   async init(): Promise<string[]> {
     if (!navigator.requestMIDIAccess) throw new Error('Web MIDI not supported');
@@ -16,6 +17,14 @@ export class MidiOut {
       return;
     }
     this.output = [...this.access.outputs.values()].find((o) => (o.name ?? o.id) === name) ?? null;
+    if (this.gmProgram !== null) this.program(this.gmProgram);
+  }
+
+  /** General MIDI program (0–127) of the selected instrument on the six string channels. */
+  program(p: number): void {
+    this.gmProgram = p;
+    if (!this.output) return;
+    for (let ch = 0; ch < 6; ch++) this.output.send([0xc0 | ch, p & 0x7f]);
   }
 
   noteOn(string: number, midi: number, velocity: number): void {

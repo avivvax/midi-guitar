@@ -1,0 +1,25 @@
+{
+  "source": "FluidR3_GM (Frank Wen), rendered per note by gleitz/midi-js-soundfonts – CC BY 3.0; re-encoded mono by tools/samples/fetch_samples.py",
+  "step": 3,
+  "sets": {
+    "steel": { "gm": "acoustic_guitar_steel", "lo": 34, "hi": 91 },
+    "nylon": { "gm": "acoustic_guitar_nylon", "lo": 37, "hi": 85 },
+    "eclean": { "gm": "electric_guitar_clean", "lo": 34, "hi": 91 },
+    "eod": { "gm": "overdriven_guitar", "lo": 37, "hi": 91 },
+    "edist": { "gm": "distortion_guitar", "lo": 37, "hi": 91 },
+    "bass-finger": { "gm": "electric_bass_finger", "lo": 22, "hi": 70 },
+    "bass-fretless": { "gm": "fretless_bass", "lo": 25, "hi": 70 },
+    "bass-ac": { "gm": "acoustic_bass", "lo": 31, "hi": 67 },
+    "violin": { "gm": "violin", "lo": 55, "hi": 100, "sustained": true },
+    "viola": { "gm": "viola", "lo": 46, "hi": 94, "sustained": true },
+    "cello": { "gm": "cello", "lo": 34, "hi": 82, "sustained": true },
+    "contrabass": { "gm": "contrabass", "lo": 25, "hi": 64, "sustained": true },
+    "fiddle": { "gm": "fiddle", "lo": 55, "hi": 100, "sustained": true },
+    "harp": { "gm": "orchestral_harp", "lo": 22, "hi": 106 },
+    "sitar": { "gm": "sitar", "lo": 31, "hi": 97 },
+    "banjo": { "gm": "banjo", "lo": 43, "hi": 91 },
+    "shamisen": { "gm": "shamisen", "lo": 43, "hi": 88 },
+    "koto": { "gm": "koto", "lo": 46, "hi": 91 },
+    "dulcimer": { "gm": "dulcimer", "lo": 46, "hi": 94 }
+  }
+}

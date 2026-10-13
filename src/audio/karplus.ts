@@ -17,6 +17,14 @@ export interface KsOptions {
   /** Excitation brightness 0..1. */
   brightness: number;
   duration: number;
+  /**
+   * Bridge nonlinearity 0..1 (sitar jawari, shamisen sawari): positive
+   * excursions above a fraction of the running envelope are compressed inside
+   * the loop, which keeps feeding energy into high partials as the note rings.
+   */
+  buzz?: number;
+  /** 'hammer' = struck string (hammered dulcimer): a smooth pulse instead of noise. */
+  excitation?: 'noise' | 'hammer';
 }
 
 export function renderKarplusStrong(sampleRate: number, freq: number, o: KsOptions, seed = 1): Float32Array<ArrayBuffer> {
@@ -45,11 +53,21 @@ export function renderKarplusStrong(sampleRate: number, freq: number, o: KsOptio
     return ((rnd >>> 0) / 4294967296) * 2 - 1;
   };
   const exc = new Float32Array(L);
-  const lpA = 0.15 + 0.8 * o.brightness; // one-pole coefficient
-  let lp = 0;
-  for (let i = 0; i < L; i++) {
-    lp += lpA * (noise() - lp);
-    exc[i] = lp;
+  if (o.excitation === 'hammer') {
+    // Raised-cosine hammer pulse at the strike point; harder = narrower = brighter.
+    const width = Math.max(2, Math.round(L * (0.25 - 0.18 * o.brightness)));
+    const centre = Math.round(o.pickPos * L);
+    for (let i = 0; i < L; i++) {
+      const x = (i - centre) / width;
+      exc[i] = (Math.abs(x) < 1 ? 0.5 + 0.5 * Math.cos(Math.PI * x) : 0) + 0.05 * noise();
+    }
+  } else {
+    const lpA = 0.15 + 0.8 * o.brightness; // one-pole coefficient
+    let lp = 0;
+    for (let i = 0; i < L; i++) {
+      lp += lpA * (noise() - lp);
+      exc[i] = lp;
+    }
   }
   const pick = Math.max(1, Math.round(o.pickPos * L));
   const delay = new Float32Array(L);
@@ -72,17 +90,33 @@ export function renderKarplusStrong(sampleRate: number, freq: number, o: KsOptio
   let apX = 0;
   let apY = 0;
   const S = o.stretch;
+  const buzz = o.buzz ?? 0;
+  const envDecay = Math.exp(-1 / (0.02 * sampleRate));
+  let env = 1;
   for (let n = 0; n < len; n++) {
     const cur = delay[idx];
     out[n] = cur;
     const filtered = rho * ((1 - S) * cur + S * prev);
     prev = cur;
     // Fractional delay all-pass.
-    const y = apC * filtered + apX - apC * apY;
+    let y = apC * filtered + apX - apC * apY;
     apX = filtered;
     apY = y;
+    if (buzz > 0) {
+      env = Math.max(Math.abs(y), env * envDecay);
+      const th = env * 0.3;
+      if (y > th) y = th + (y - th) * (1 - buzz);
+    }
     delay[idx] = y;
     idx = idx + 1 === L ? 0 : idx + 1;
+  }
+  if (buzz > 0) {
+    // The one-sided limiting adds DC; remove it.
+    let dc = 0;
+    for (let n = 0; n < len; n++) {
+      dc += 0.0005 * (out[n] - dc);
+      out[n] -= dc;
+    }
   }
   // Short fade at the end to avoid a click.
   const fade = Math.min(len, Math.floor(0.05 * sampleRate));

@@ -33,9 +33,20 @@ export default defineConfig(({ command, isPreview }) => ({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
         // The Chordonomicon index (cx/) is never precached; shards are cached as they are used.
-        globIgnores: ['cx/**', 'he/**'],
-        navigateFallbackDenylist: [/\/cx\//, /\/he\//],
+        // Instrument samples are loaded per instrument and cached on first use (not precached).
+        globIgnores: ['cx/**', 'he/**', 'samples/**'],
+        navigateFallbackDenylist: [/\/cx\//, /\/he\//, /\/samples\//],
         runtimeCaching: [
+          {
+            // Instrument samples never change under the same name: cache-first, so a used instrument works offline.
+            urlPattern: ({ url }) => url.pathname.includes('/samples/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'instrument-samples',
+              expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 * 24 * 180 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
           {
             // Manifest changes on every index build: prefer the network, fall back offline.
             urlPattern: ({ url }) => url.pathname.endsWith('/cx/manifest.json') || url.pathname.endsWith('/he/manifest.json'),

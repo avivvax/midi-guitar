@@ -1,6 +1,6 @@
 import type { Voicing } from '../music/theory';
 
-/** Compact chord box: strings left (low E) → right (high e), 4–5 frets. */
+/** Compact chord box for any number of strings: left = the low-E side of the neck, 4–5 frets. */
 export default function ChordDiagram({ voicing, size = 96 }: { voicing: Voicing; size?: number }) {
   const fretted = voicing.filter((f): f is number => f !== null && f > 0);
   const maxF = fretted.length ? Math.max(...fretted) : 0;
@@ -11,7 +11,9 @@ export default function ChordDiagram({ voicing, size = 96 }: { voicing: Voicing;
   const h = size * 1.15;
   const padX = w * 0.14;
   const top = h * 0.2;
-  const gx = (w - padX * 2) / 5;
+  const n = voicing.length;
+  const gx = (w - padX * 2) / Math.max(1, n - 1);
+  const x0 = n === 1 ? w / 2 : padX;
   const gy = (h - top - h * 0.06) / rows;
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="ltr" aria-hidden>
@@ -20,15 +22,15 @@ export default function ChordDiagram({ voicing, size = 96 }: { voicing: Voicing;
           {base}
         </text>
       )}
-      {base === 1 && <rect x={padX} y={top - 3} width={gx * 5} height={4} fill="var(--text)" />}
+      {base === 1 && n > 1 && <rect x={padX} y={top - 3} width={gx * (n - 1)} height={4} fill="var(--text)" />}
       {Array.from({ length: rows + 1 }, (_, r) => (
-        <line key={`f${r}`} x1={padX} x2={w - padX} y1={top + r * gy} y2={top + r * gy} stroke="var(--line)" strokeWidth={1.5} />
+        <line key={`f${r}`} x1={n === 1 ? x0 - 8 : padX} x2={n === 1 ? x0 + 8 : w - padX} y1={top + r * gy} y2={top + r * gy} stroke="var(--line)" strokeWidth={1.5} />
       ))}
-      {Array.from({ length: 6 }, (_, s) => (
-        <line key={`s${s}`} x1={padX + s * gx} x2={padX + s * gx} y1={top} y2={top + rows * gy} stroke="var(--muted)" strokeWidth={1.2} />
+      {Array.from({ length: n }, (_, s) => (
+        <line key={`s${s}`} x1={x0 + s * gx} x2={x0 + s * gx} y1={top} y2={top + rows * gy} stroke="var(--muted)" strokeWidth={1.2} />
       ))}
       {voicing.map((f, s) => {
-        const x = padX + s * gx;
+        const x = x0 + s * gx;
         if (f === null)
           return (
             <text key={s} x={x} y={top - 6} textAnchor="middle" fill="var(--err)" fontSize={w * 0.12}>
