@@ -3,6 +3,7 @@
 #pragma once
 #include <stdint.h>
 #include <math.h>
+#include "config.h"
 
 #define NUM_STRINGS 6
 
@@ -21,21 +22,21 @@ struct DetectorParams {
   float gain[NUM_STRINGS];      // per-string input gain applied before the threshold (0.25..4)
 };
 
-static const uint32_t PARAMS_MAGIC = 0x4D474432; // "MGD2" (layout changed: release + gain)
+static const uint32_t PARAMS_MAGIC = 0x4D474433; // "MGD3" (new defaults: trigger 0.12, re-arm 0.5, 2 ms peak hold)
 
 inline DetectorParams defaultParams() {
   DetectorParams p;
   p.magic = PARAMS_MAGIC;
-  for (int i = 0; i < NUM_STRINGS; i++) p.threshold[i] = 120;
+  for (int i = 0; i < NUM_STRINGS; i++) p.threshold[i] = (uint16_t)(TRIGGER * ADC_MAX + 0.5f);
   p.fullScale = 2500;
   p.curve = 0.7f;
-  p.refractoryMs = 60;
-  p.windowMs = 5;
+  p.refractoryMs = REFRACTORY_MS;
+  p.windowMs = PEAK_HOLD_MS;
   p.neighbourRatio = 1.0f;
   p.refRatio = 1.0f;
   p.baselineAlpha = 0.002f;
   p.rawEvery = 1;
-  p.releaseRatio = 1.0f;
+  p.releaseRatio = REARM_RATIO;
   for (int i = 0; i < NUM_STRINGS; i++) p.gain[i] = 1.0f;
   return p;
 }
@@ -112,11 +113,16 @@ class StrumDetector {
       } else {
         // Idle: baseline follows slow drift only while quiet.
         if (sig[i] < th) baseline_[i] += p.baselineAlpha * ((float)values[i] - baseline_[i]);
-        // Re-arm only after the signal has decayed below threshold × releaseRatio
-        // (1.0 = as soon as it drops under the threshold).
+        // Refractory: right after a hit every reading on this string is ignored
+        // (piezo rebound, crosstalk). The detector never ends notes – a low
+        // reading only re-arms the string.
+        if (now_ - lastHit_[i] < msToSamples(p.refractoryMs)) {
+          prev_[i] = sig[i];
+          continue;
+        }
+        // Re-arm only after the signal has decayed below threshold × releaseRatio.
         if (!armed_[i] && sig[i] < th * p.releaseRatio) armed_[i] = true;
-        bool rising = armed_[i] && sig[i] >= th;
-        if (rising && now_ - lastHit_[i] >= msToSamples(p.refractoryMs)) {
+        if (armed_[i] && sig[i] >= th) {
           armed_[i] = false;
           lastHit_[i] = now_;
           peak_[i] = sig[i];

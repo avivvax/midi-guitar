@@ -76,7 +76,7 @@ int main() {
   uint8_t dump[64];
   int n = configDump(defaultParams(), dump, sizeof(dump));
   CHECK(n == 6 + 2 + 12, "dump size");
-  CHECK(dump[0] == 20 && dump[1] == ccFromLevel(120), "dump starts with thresholds");
+  CHECK(dump[0] == 20 && dump[1] == ccFromLevel(defaultParams().threshold[0]), "dump starts with thresholds");
 
   // --- BLE-MIDI parsing ---------------------------------------------------
   auto m = parse({0x80, 0x80, 0xBF, 20, 64, 0x81, 0xBF, 29, 3, 28, 80});
@@ -92,6 +92,9 @@ int main() {
   {
     // Signal hovers just under the threshold after a hit, then rises again (no full decay).
     DetectorParams q = defaultParams();
+    for (int i = 0; i < NUM_STRINGS; i++) q.threshold[i] = 120;
+    q.windowMs = 5;
+    q.releaseRatio = 1.0f;
     q.refractoryMs = 5;
     std::vector<int> shape(20, 0);
     std::vector<int> wobble = {300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 100, 100, 100, 100, 100, 100, 100, 100,
@@ -105,6 +108,7 @@ int main() {
   }
   {
     DetectorParams q = defaultParams();
+    q.threshold[0] = 120;
     std::vector<int> soft(30, 0);
     soft.insert(soft.end(), {80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 0, 0});
     StrumDetector a(2000);

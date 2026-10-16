@@ -4,8 +4,10 @@
 //  * Standard BLE-MIDI device ("MIDI Guitar"), implemented directly on
 //    NimBLE-Arduino 2.x so we control the connection interval (7.5 ms).
 //  * Strum on string N (1 = low E) -> Note On, MIDI channel N, note 60,
-//    velocity 1..127; Note Off 50 ms later. (The app ignores Note Off – strings
-//    ring until they decay or are re-plucked – but it keeps MIDI tools happy.)
+//    velocity 1..127. The piezo only starts notes: the Note Off comes from a
+//    timer (NOTE_LEN_MS, config.h) or just before a new strike on the same
+//    string – never from the reading dropping. (The app ignores Note Off –
+//    strings ring until they decay or are re-plucked – but MIDI tools use it.)
 //  * Remote calibration from the app: Control Change on MIDI channel 16
 //    (see ConfigProtocol.h), applied live, saved to flash on request.
 //  * Serial: one line per sample (~2 ms) of raw ADC values, space separated,
@@ -185,7 +187,7 @@ static void printHelp() {
   Serial.println("#   nb <x>               neighbour rejection ratio (0 = off, 1 = reject if neighbour louder)");
   Serial.println("#   ref <x>              reference piezo rejection ratio (0 = off)");
   Serial.println("#   alpha <x>            baseline tracking speed (0.0005..0.05)");
-  Serial.println("#   rel <x>              re-arm when signal < threshold × x (0.05..1, 1 = default)");
+  Serial.println("#   rel <x>              re-arm when signal < threshold × x (0.05..1, default 0.5)");
   Serial.println("#   gain <string|all> <x> per-string input gain (0.25..4, 1 = default)");
   Serial.println("#   raw <n>              print raw values every n samples (0 = off, 1 = every sample)");
   Serial.println("#   test <string>        send a test strum over Bluetooth");
@@ -210,7 +212,7 @@ static void sendStrum(uint8_t string, uint8_t velocity) {
   const uint8_t ch = string;  // 0-based channel nibble: string 0 -> MIDI channel 1
   if (noteOffAt[string]) midiQueue(0x80 | ch, STRUM_NOTE, 0);  // still sounding: close it first
   midiQueue(0x90 | ch, STRUM_NOTE, velocity);
-  uint32_t off = micros() + NOTE_OFF_MS * 1000UL;
+  uint32_t off = micros() + NOTE_LEN_MS * 1000UL;
   noteOffAt[string] = off ? off : 1;
 }
 
@@ -421,11 +423,16 @@ static void sampleOnce() {
   midiFlush();
 
   printRaw(v, ref);
-  // Hits/rejects are reported only when the raw stream is off, so the web
-  // app's Serial parser never sees a non-numeric line mixed into the stream.
+  // One line per trigger, always (the web app's Serial parser skips '#' lines).
+  // Peak in ADC counts above the resting level, and as 0..1 like TRIGGER.
+  for (uint8_t k = 0; k < nHits; k++) {
+    char line[64];
+    int len = snprintf(line, sizeof(line), "# hit string %u peak %u (%.2f) vel %u\n", hits[k].string + 1, hits[k].peak,
+                       hits[k].peak / (float)ADC_MAX, hits[k].velocity);
+    if (Serial.availableForWrite() >= len) Serial.write((const uint8_t*)line, len);  // never block sampling
+  }
+  // Rejected strikes are reported only when the raw stream is off.
   if (params.rawEvery == 0) {
-    for (uint8_t k = 0; k < nHits; k++)
-      Serial.printf("# hit string %u vel %u peak %u\n", hits[k].string + 1, hits[k].velocity, hits[k].peak);
     for (uint8_t k = 0; k < nRejects; k++)
       Serial.printf("# reject string %u (%s louder: %u > %u)\n", rejects[k].string + 1,
                     rejects[k].reason == REJECT_REFERENCE ? "body" : "neighbour", rejects[k].other, rejects[k].peak);

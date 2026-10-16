@@ -52,8 +52,23 @@ static std::vector<std::vector<int>> pulse(int s, std::vector<int> amps) {
   return out;
 }
 
+// The mechanism tests below were written for the original tuning (threshold
+// 120, 5 ms window, 60 ms refractory, re-arm at the threshold); pin it so they
+// keep testing the mechanism, not the defaults. The defaults are tested at the end.
+static DetectorParams legacyParams() {
+  DetectorParams p = defaultParams();
+  for (int i = 0; i < NUM_STRINGS; i++) p.threshold[i] = 120;
+  p.windowMs = 5;
+  p.refractoryMs = 60;
+  p.releaseRatio = 1.0f;
+  return p;
+}
+
+static std::vector<std::vector<int>> gap(int samples) { return std::vector<std::vector<int>>(samples, std::vector<int>(6, 0)); }
+static void append(std::vector<std::vector<int>>& a, const std::vector<std::vector<int>>& b) { a.insert(a.end(), b.begin(), b.end()); }
+
 int main() {
-  const DetectorParams p = defaultParams();
+  const DetectorParams p = legacyParams();
 
   {  // single hit, velocity from peak, reported after the window
     StrumDetector d(HZ);
@@ -149,6 +164,59 @@ int main() {
     settle(d, q);
     CHECK(feed(d, q, pulse(0, {600, 700})).hits.empty(), "below raised threshold");
     CHECK(feed(d, q, pulse(1, {600, 700})).hits.size() == 1, "other string unaffected");
+  }
+
+  // --- the piezo only starts notes (defaults from config.h) -----------------
+  const DetectorParams dp = defaultParams();
+  CHECK(dp.threshold[0] == 491 && dp.windowMs == 2 && dp.refractoryMs == 50 && dp.releaseRatio == 0.5f, "defaults from config.h");
+  {  // Michael's log: a strike at ~0.2, then the piezo rings at ~0.05 for 400 ms -> one note, nothing else
+    StrumDetector d(HZ);
+    settle(d, dp);
+    auto shape = pulse(2, {400, 819, 700, 500});
+    for (int k = 0; k < 800; k++) append(shape, pulse(2, {205}));
+    Run r = feed(d, dp, shape);
+    CHECK(r.hits.size() == 1, "ringing at 0.05 neither retriggers nor ends anything");
+  }
+  {  // decaying ring that pokes above the trigger again without falling under trigger × 0.5 -> not re-armed
+    StrumDetector d(HZ);
+    settle(d, dp);
+    auto shape = pulse(0, {900, 1100, 900});
+    for (int k = 0; k < 140; k++) append(shape, pulse(0, {400}));  // 70 ms (past the refractory), above 245
+    append(shape, pulse(0, {650, 650}));                              // crosses 491 again
+    CHECK(feed(d, dp, shape).hits.size() == 1, "no re-arm above trigger × 0.5");
+    // ...but after the reading drops under 245 the next strike counts.
+    StrumDetector d2(HZ);
+    settle(d2, dp);
+    auto shape2 = pulse(0, {900, 1100, 900});
+    append(shape2, gap(200));
+    append(shape2, pulse(0, {600, 600}));
+    CHECK(feed(d2, dp, shape2).hits.size() == 2, "re-armed below trigger × 0.5");
+  }
+  {  // refractory: a rebound 20 ms after the strike is ignored even though the reading went to 0 in between
+    StrumDetector d(HZ);
+    settle(d, dp);
+    auto shape = pulse(4, {1500, 1500});
+    append(shape, gap(10));
+    append(shape, pulse(4, {1200, 1200}));  // ~6 ms: rebound
+    append(shape, gap(30));
+    append(shape, pulse(4, {900, 900}));    // ~22 ms: crosstalk / rebound
+    CHECK(feed(d, dp, shape).hits.size() == 1, "rebound inside 50 ms ignored");
+    StrumDetector d2(HZ);
+    settle(d2, dp);
+    auto shape2 = pulse(4, {1500, 1500});
+    append(shape2, gap(120));               // 60 ms
+    append(shape2, pulse(4, {900, 900}));
+    CHECK(feed(d2, dp, shape2).hits.size() == 2, "new strike after 50 ms counts");
+  }
+  {  // 2 ms peak hold: the peak is taken right after the crossing, never 0 velocity
+    StrumDetector d(HZ);
+    settle(d, dp);
+    Run r = feed(d, dp, pulse(1, {500, 900, 1300, 1000, 700, 3000}));
+    CHECK(r.hits.size() == 1 && r.hits[0].peak == 1300, "peak within the hold window");
+    StrumDetector d2(HZ);
+    settle(d2, dp);
+    Run r2 = feed(d2, dp, pulse(1, {491, 491}));
+    CHECK(r2.hits.size() == 1 && r2.hits[0].velocity == 1, "velocity at the trigger is 1, never 0");
   }
 
   if (failures) {

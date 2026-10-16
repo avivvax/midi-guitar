@@ -34,16 +34,18 @@ All pins must be ADC1 pins (GPIO 1–10 on the S3), because ADC2 is unavailable 
 ## Behaviour
 
 - **Sampling:** all piezos at 2 kHz. Scheduling uses `micros()` in `loop()`, with no `delay()`.
-- **Detection (`StrumDetector.h`), per string:**
-  - a slow baseline EMA, frozen while a hit is in progress
-  - a rising edge through the string's threshold opens a 5 ms window
+- **Detection (`StrumDetector.h`, defaults in `config.h`), per string:**
+  - a slow baseline EMA, frozen while a hit is in progress; the signal is the piezo minus its baseline, times the string's `gain` (default 1)
+  - a rising edge through the trigger threshold (`TRIGGER` = 0.12 of the ADC range = 491 counts) opens a 2 ms peak-hold window (`PEAK_HOLD_MS`)
   - during the window it tracks the string's own peak and the loudest neighbouring string or reference piezo
   - the hit is rejected if a neighbour (× `nb`) or the reference (× `ref`) peaked higher
-  - otherwise velocity = `1 + 126 · ((peak − th) / (fs − th))^curve`
-  - 60 ms refractory window
-  - the signal is the piezo minus its baseline, times the string's `gain` (default 1)
-  - after a hit the string re-arms only once the signal falls below `th × rel` (default `rel` 1.0, i.e. no extra hysteresis); a lower `rel` stops one loud pluck from re-triggering
-- **MIDI:** Note On on channel = string number (1 = low E), note 60, then Note Off 50 ms later. Strums detected in the same sample go out in one BLE notification. The web app **ignores Note Off**, so strings sustain there until they decay or are re-plucked; the Note Off is harmless and keeps other MIDI hosts from hanging notes. Only CC 20 = 127 (mute) cuts a note in the app.
+  - otherwise velocity = `1 + 126 · ((peak − th) / (fs − th))^curve`, always 1–127 (never 0, which would be a Note Off)
+  - for 50 ms after a hit (`REFRACTORY_MS`) every reading on that string is ignored, which stops piezo rebound and crosstalk from triggering twice
+  - after that, the string re-arms only once the signal falls below `th × rel` (`REARM_RATIO`, default 0.5)
+  - a low reading never stops a note; it only re-arms the string
+  - every trigger is logged on Serial: `# hit string 3 peak 1210 (0.30) vel 64`
+  - **Saved settings reset after updating to this version** (NVS magic `MGD3`), so the new defaults take effect.
+- **MIDI:** Note On on channel = string number (1 = low E), note 60. **The piezo only starts notes:** the Note Off is sent by a timer, `NOTE_LEN_MS` (default 2000 ms), or just before a new strike on the same string. A falling reading never ends a note, because a piezo gives an impact spike and then rings and decays. Strums detected in the same sample go out in one BLE notification. The web app **ignores Note Off**, so strings sustain there until they decay or are re-plucked; the Note Off is harmless and keeps other MIDI hosts from hanging notes. Only CC 20 = 127 (mute) cuts a note in the app.
 - **Calibration over BLE:** the app writes Control Changes on MIDI channel 16 to the BLE-MIDI characteristic: thresholds, release, neighbour ratio, per-string gain, save, reset, and a monitor switch that makes the firmware stream peak levels (CC 40–45 every 50 ms) and dump its settings. The full table is in the main `README.md` ("Calibration protocol"); the code is `ConfigProtocol.h`, and the BLE-MIDI parser is `BleMidiParse.h`. Writes are queued from the BLE task into `loop()`, and changes apply live. They are saved to NVS only on CC 30 = 127 ("שמור לגיטרה" in the app). Notifications are capped at the negotiated MTU − 3 bytes.
 - **BLE:**
   - advertises the BLE-MIDI service `03B80E5A-EDE8-4B33-A751-6CE34EC4C700`, with the name in the scan response
@@ -60,15 +62,15 @@ All pins must be ADC1 pins (GPIO 1–10 on the S3), because ADC2 is unavailable 
 | --- | --- |
 | `help` | list commands |
 | `show` | print settings |
-| `th <1-6\|all> <n>` | trigger threshold in ADC counts above the baseline, e.g. `th 3 450` (default 120) |
+| `th <1-6\|all> <n>` | trigger threshold in ADC counts above the baseline, e.g. `th 3 450` (default `TRIGGER` 0.12 × 4095 = 491) |
 | `fs <n>` | peak that maps to velocity 127 (default 2500) |
 | `curve <x>` | velocity curve exponent (default 0.7; <1 = more sensitive) |
-| `refr <ms>` | refractory time (default 60) |
-| `win <ms>` | crosstalk comparison window (default 5) |
+| `refr <ms>` | refractory time: the string is completely ignored this long after a strike (default `REFRACTORY_MS` 50) |
+| `win <ms>` | peak-hold and crosstalk window after the crossing (default `PEAK_HOLD_MS` 2) |
 | `nb <x>` | neighbour rejection ratio (default 1.0; 0 = off; lower = more permissive) |
 | `ref <x>` | reference rejection ratio (default 1.0; 0 = off) |
 | `alpha <x>` | baseline tracking speed (default 0.002) |
-| `rel <x>` | release (re-arm) ratio 0.05–1 (default 1.0; lower = fewer double triggers) |
+| `rel <x>` | re-arm ratio 0.05–1: the string re-arms below threshold × x (default `REARM_RATIO` 0.5; lower = fewer double triggers) |
 | `gain <1-6\|all> <x>` | per-string signal gain 0.25–4 (default 1) |
 | `raw <n>` | raw stream every n samples (default 1; 0 = off, which prints `# hit` / `# reject` lines instead) |
 | `test <1-6\|all>` | send a test strum over BLE |

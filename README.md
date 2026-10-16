@@ -129,7 +129,7 @@ Use this when the OS already pairs the guitar as a MIDI device (for example, And
 | --- | --- |
 | MIDI channel 1–6 | string 0–5 (channel 1 = low E, channel 6 = high e) |
 | **Note On**, velocity 1–127 | **strum** on that string, velocity = v/127. The note number is ignored because the app decides the pitch. The firmware in `firmware/` sends note 60. |
-| Note On velocity 0 / Note Off | **ignored**: a plucked string sustains until it decays naturally or is plucked again. The firmware still sends Note Off 50 ms after each Note On; that is harmless. |
+| Note On velocity 0 / Note Off | **ignored**: a plucked string sustains until it decays naturally or is plucked again. The firmware sends Note Off on a timer (2 s by default, `NOTE_LEN_MS` in `firmware/midi_guitar/config.h`) or just before a re-strike on the same string. It never sends one because the piezo reading dropped. |
 | **CC 20**, value 0–12 | **fret** pressed on that string (0 = open / nothing touched) |
 | **CC 20**, value 127 | string **damped/muted** (`fret: null`). Stops the ringing string at once (and sends Note Off on MIDI Out); a strum while muted plays a percussive click. This is the only way to cut a note short. |
 
