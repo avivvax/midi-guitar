@@ -5,7 +5,7 @@
 //    NimBLE-Arduino 2.x so we control the connection interval (7.5 ms).
 //  * Strum on string N (1 = low E) -> Note On, MIDI channel N, note 60,
 //    velocity 1..127. The piezo only starts notes: the Note Off comes from a
-//    timer (NOTE_LEN_MS, config.h) or just before a new strike on the same
+//    timer (NOTE_OFF_MS, config.h) or just before a new strike on the same
 //    string – never from the reading dropping. (The app ignores Note Off –
 //    strings ring until they decay or are re-plucked – but MIDI tools use it.)
 //  * Remote calibration from the app: Control Change on MIDI channel 16
@@ -212,7 +212,7 @@ static void sendStrum(uint8_t string, uint8_t velocity) {
   const uint8_t ch = string;  // 0-based channel nibble: string 0 -> MIDI channel 1
   if (noteOffAt[string]) midiQueue(0x80 | ch, STRUM_NOTE, 0);  // still sounding: close it first
   midiQueue(0x90 | ch, STRUM_NOTE, velocity);
-  uint32_t off = micros() + NOTE_LEN_MS * 1000UL;
+  uint32_t off = micros() + NOTE_OFF_MS * 1000UL;
   noteOffAt[string] = off ? off : 1;
 }
 

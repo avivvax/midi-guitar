@@ -23,7 +23,7 @@ static const int8_t REF_PIN = 7;
 #define STRUM_NOTE 60
 
 // ---- Strum detection ---------------------------------------------------------
-// Rule: the piezo only STARTS notes. A note ends on the NOTE_LEN_MS timer (or
+// Rule: the piezo only STARTS notes. A note ends on the NOTE_OFF_MS timer (or
 // when the same string is struck again), never because the reading dropped.
 // These are the defaults; "th" / "refr" / "rel" over Serial and the app's
 // calibration screen change them live.
@@ -42,8 +42,9 @@ static const int8_t REF_PIN = 7;
 // The string re-arms only once the reading falls below TRIGGER × this.
 #define REARM_RATIO 0.5f
 // How long after the Note On the Note Off is sent (a new strike on the same
-// string sends it sooner). Raise it if notes cut off in your MIDI app.
-#define NOTE_LEN_MS 2000
+// string sends it sooner). The web app ignores Note Off and lets the string
+// ring; other MIDI apps (DAWs) end the note here – raise it for those.
+#define NOTE_OFF_MS 50
 
 // Requested BLE connection interval in units of 1.25 ms (6 = 7.5 ms, the
 // minimum the spec allows). The phone may grant a longer one.
